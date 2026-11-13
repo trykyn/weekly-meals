@@ -250,8 +250,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .chip.soon small { color: var(--danger); font-weight: 600; }
 .useup-btn, .gather-btn { flex: none; }
 .stock-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-/* two lines of chips: 2 × chip height (31px) + one gap */
-.stock-chips.clamp { max-height: 68px; overflow: hidden; }
+/* two lines of chips; the exact height is measured in renderUseUp, this is only the first guess */
+.stock-chips.clamp { max-height: 74px; overflow: hidden; }
 /* The window's body scrolls as a whole; nothing in it may shrink (the clamped chips were squeezed to 0). */
 #useup-body > * { flex: none; }
 .stock-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: -6px; }
@@ -2002,7 +2002,17 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const more = el('button', { type: 'button', class: 'link-btn', hidden: true }, stockExpanded ? '접기' : `모두 보기 (${stock.length})`);
     more.addEventListener('click', () => { stockExpanded = !stockExpanded; renderUseUp(); });
     useupBody.append(el('div', { class: 'stock-head' }, el('span', { class: 'shop-msg' }, `남은 재료 ${stock.length}개`), more), chips);
-    requestAnimationFrame(() => { more.hidden = !stockExpanded && chips.scrollHeight <= chips.clientHeight + 2; });
+    // Cut right under the second row of chips, measured, since chip height depends on the phone's font.
+    requestAnimationFrame(() => {
+      if (stockExpanded) { more.hidden = false; return; }
+      const top = chips.getBoundingClientRect().top;
+      const rowOf = (c) => Math.round(c.getBoundingClientRect().top - top);
+      const rows = [...new Set([...chips.children].map(rowOf))].sort((a, b) => a - b);
+      if (rows.length <= 2) { chips.style.maxHeight = 'none'; more.hidden = true; return; }
+      const secondRow = [...chips.children].filter((c) => rowOf(c) === rows[1]);
+      chips.style.maxHeight = Math.ceil(Math.max(...secondRow.map((c) => c.getBoundingClientRect().bottom)) - top + 1) + 'px';
+      more.hidden = false;
+    });
 
     if (reading > 0 || bookReading > 0) {
       const what = bookReading > 0
