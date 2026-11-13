@@ -31,6 +31,8 @@
   --ig: #C2338A;
   --link: #6E5C2A;
   --danger: #C23A2E;
+  --kid-bg: #E2F2E4;
+  --kid-ink: #2E7A44;
   --bowl: #D9481F;
   --rice: #FFFFFF;
   --rice-dot: #EADFC0;
@@ -44,7 +46,7 @@
   :root:not([data-theme="light"]) {
     --bg: #16130B; --surface: #221E12; --yolk: #FFC93A; --yolk-strong: #FFD460; --yolk-soft: #3B3114;
     --ink: #F7EFD5; --muted: #BDAE83; --line: #3A3320; --on-yolk: #2A2413; --on-brand: #FFFFFF;
-    --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E;
+    --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E; --kid-bg: #233A2A; --kid-ink: #93D6A4;
     --bowl: #E8562C; --rice: #FFFDF3; --rice-dot: #D9CDA8;
     --scrim: rgba(0, 0, 0, .6); --shadow: 0 6px 18px -10px rgba(0, 0, 0, .7);
     color-scheme: dark;
@@ -53,7 +55,7 @@
 :root[data-theme="dark"] {
   --bg: #16130B; --surface: #221E12; --yolk: #FFC93A; --yolk-strong: #FFD460; --yolk-soft: #3B3114;
   --ink: #F7EFD5; --muted: #BDAE83; --line: #3A3320; --on-yolk: #2A2413; --on-brand: #FFFFFF;
-  --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E;
+  --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E; --kid-bg: #233A2A; --kid-ink: #93D6A4;
   --bowl: #E8562C; --rice: #FFFDF3; --rice-dot: #D9CDA8;
   --scrim: rgba(0, 0, 0, .6); --shadow: 0 6px 18px -10px rgba(0, 0, 0, .7);
   color-scheme: dark;
@@ -175,6 +177,15 @@ a.item-main .txt {
   text-decoration-color: var(--yolk-strong); text-underline-offset: 3px;
 }
 .ico { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+/* 아이 menus: same box as the adults' menu, listed under it with a small tag */
+.kid-tag {
+  flex: none; margin-top: 2px; padding: 0 6px; border-radius: 999px; line-height: 18px;
+  font-size: 11px; font-weight: 600; color: var(--kid-ink); background: var(--kid-bg); letter-spacing: .02em;
+}
+.item.kid-first { margin-top: 3px; padding-top: 3px; border-top: 1px dashed var(--line); }
+.who-pick { grid-template-columns: repeat(2, 1fr); }
+.who-pick label { padding: 6px 0; font-size: 15px; }
+.who-pick input[value="kid"]:checked + label { background: var(--kid-bg); border-color: var(--kid-ink); color: var(--kid-ink); }
 .item { position: relative; }
 .item-tools { flex: none; display: flex; gap: 2px; }
 .item-tools button {
@@ -256,7 +267,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 }
 
 .foot {
-  margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px;
+  margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 16px;
   color: var(--muted); font-size: 13px;
 }
 .foot strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -289,8 +300,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .status[data-state="synced"]::before { background: #3BA55C; }
 .status[data-state="local"]::before { background: var(--yolk-strong); }
 .status[data-state="error"]::before, .status[data-state="slow"]::before { background: var(--danger); }
-.legend { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.legend span { display: inline-flex; gap: 4px; align-items: center; }
 
 /* ---------- phone layout ---------- */
 @media (max-width: 900px) {
@@ -428,10 +437,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   </div>
   <div class="board" id="board"></div>
   <div class="foot">
-    <span id="summary"></span>
-    <span class="legend" aria-label="링크 표시">
-      <span id="lg-yt"></span><span id="lg-ig"></span><span id="lg-link"></span>
-    </span>
     <button class="status" id="status" type="button" data-state="local">이 기기에만 저장돼요</button>
   </div>
 </main>
@@ -487,6 +492,10 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <p id="sheet-when"></p>
     </div>
     <div class="meal-pick" role="radiogroup" aria-label="끼니" id="meal-pick"></div>
+    <div class="meal-pick who-pick" role="radiogroup" aria-label="누구 메뉴">
+      <input type="radio" name="who" id="who-adult" value="adult"><label for="who-adult">어른</label>
+      <input type="radio" name="who" id="who-kid" value="kid"><label for="who-kid">아이</label>
+    </div>
     <div class="day-pick-wrap" id="day-pick-wrap">
       <div class="day-pick-head">
         <span>날짜<small>여러 날 고를 수 있어요</small></span>
@@ -597,6 +606,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const out = {};
     for (const m of MEALS) out[m.key] = (d[m.key] || []).map((it) => {
       const x = { id: String(it.id), text: String(it.text || ''), url: String(it.url || '') };
+      if (it.kid) x.kid = true; // 아이 메뉴
       // Ingredients found earlier for this menu, kept so the next 장보기 needs no new lookup.
       if (it.ing && Array.isArray(it.ing.list)) {
         x.ing = {
@@ -638,8 +648,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     return n;
   }
 
-  function renderItem(it, key, meal) {
-    const li = el('li', { class: 'item' });
+  function renderItem(it, key, meal, kidFirst) {
+    const li = el('li', { class: 'item' + (it.kid ? ' kid' : '') + (kidFirst ? ' kid-first' : '') });
     let main;
     if (it.url) {
       const p = platform(it.url);
@@ -648,6 +658,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     } else {
       main = el('button', { class: 'item-main', type: 'button', 'data-edit': it.id, 'data-key': key, 'data-meal': meal });
     }
+    if (it.kid) main.prepend(el('span', { class: 'kid-tag' }, '아이'));
     main.append(el('span', { class: 'txt' }, it.text));
     const edit = el('button', { class: 'item-edit', type: 'button', 'aria-label': `${it.text} 수정`, 'data-edit': it.id, 'data-key': key, 'data-meal': meal });
     edit.innerHTML = ICONS.pencil;
@@ -673,7 +684,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     for (const m of MEALS) labels.append(el('div', { class: 'row-label' }, el('span', null, m.label), m.hint ? el('small', null, m.hint) : null));
     frag.append(labels);
 
-    let filled = 0, links = 0;
     for (let i = 0; i < 7; i++) {
       const d = addDays(viewStart, i);
       const key = dateKey(d);
@@ -686,13 +696,14 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
         isToday ? el('span', { class: 'today-tag' }, '오늘') : null));
       for (const m of MEALS) {
         const items = Array.isArray(data[m.key]) ? data[m.key] : [];
-        if (items.length) filled++;
-        links += items.filter((x) => x.url).length;
         const slot = el('div', { class: 'slot' + (items.length ? '' : ' is-empty'), 'data-key': key, 'data-meal': m.key });
         slot.append(el('span', { class: 'slot-label' }, m.label));
         if (items.length) {
           const ul = el('ul', { class: 'items' });
-          items.forEach((it) => ul.append(renderItem(it, key, m.key)));
+          // Adults' menus first, then the kids' under a thin line
+          const grown = items.filter((x) => !x.kid), kids = items.filter((x) => x.kid);
+          grown.forEach((it) => ul.append(renderItem(it, key, m.key)));
+          kids.forEach((it, i) => ul.append(renderItem(it, key, m.key, i === 0 && grown.length > 0)));
           slot.append(ul);
         }
         slot.append(el('button', { class: 'add', type: 'button', 'data-add': '1', 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일 ${m.label} 메뉴 추가` }, '+ 추가'));
@@ -701,17 +712,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       frag.append(col);
     }
     board.replaceChildren(frag);
-
-    const sum = document.getElementById('summary');
-    sum.replaceChildren(
-      '7일 동안 ', el('strong', null, `${filled}`), ` / ${MEALS.length * 7}칸 채움`,
-      links ? ' · 링크 ' : '', links ? el('strong', null, `${links}개`) : '');
   }
-
-  // legend
-  document.getElementById('lg-yt').innerHTML = ICONS.youtube + '유튜브';
-  document.getElementById('lg-ig').innerHTML = ICONS.instagram + '인스타';
-  document.getElementById('lg-link').innerHTML = ICONS.link + '기타 링크';
 
   /* ---------- editor ---------- */
   const sheet = document.getElementById('sheet');
@@ -747,7 +748,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
           const k = normName(it.text);
           if (!k) continue;
           const e = lib.get(k) || { name: it.text, url: '', ing: null, count: 0, last: key, meal: m.key };
-          e.name = it.text; e.count++; e.last = key; e.meal = m.key;
+          e.name = it.text; e.count++; e.last = key; e.meal = m.key; e.kid = !!it.kid;
           if (it.url) e.url = it.url;
           if (it.ing && it.ing.list && it.ing.list.length && (!it.url || it.url === e.url)) e.ing = it.ing;
           lib.set(k, e);
@@ -766,6 +767,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     document.getElementById('sheet-title').textContent = item ? '메뉴 수정' : '메뉴 추가';
     document.getElementById('sheet-when').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${dowName(d)}요일`;
     form.elements.meal.value = meal;
+    form.elements.who.value = (item ? item.kid : prefill && prefill.kid) ? 'kid' : 'adult';
     buildDayPick(key);
     document.getElementById('day-pick-wrap').hidden = !!item;
     fText.value = item ? item.text : (prefill && prefill.text) || '';
@@ -849,7 +851,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       .slice(0, 6);
     fSuggest.hidden = !hits.length;
     for (const e of hits) {
-      const chip = el('button', { type: 'button', class: 'chip', 'data-name': e.name });
+      const chip = el('button', { type: 'button', class: 'chip', 'data-name': e.name, 'data-kid': e.kid ? '1' : null });
+      if (e.kid) chip.append(el('span', { class: 'kid-tag' }, '아이'));
       if (e.url) chip.insertAdjacentHTML('beforeend', ICONS[platform(e.url)]);
       chip.append(e.name);
       fSuggest.append(chip);
@@ -859,6 +862,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const chip = e.target.closest('.chip');
     if (!chip) return;
     fText.value = chip.dataset.name;
+    form.elements.who.value = chip.dataset.kid ? 'kid' : 'adult'; // as it was last planned
     renderSuggest();
     updateHint();
     fText.focus();
@@ -874,6 +878,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     if (!text && !url) { updateHint('메뉴 이름이나 링크를 적어 주세요'); fText.focus(); return; }
     if (!text) text = defaultLabel(url);
     const meal = form.elements.meal.value || editing.meal;
+    const kid = form.elements.who.value === 'kid';
     const prepared = (k) => {
       const day = clone(days[k]);
       MEALS.forEach((m) => { if (!Array.isArray(day[m.key])) day[m.key] = []; });
@@ -884,6 +889,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       const list = day[editing.meal];
       const idx = list.findIndex((x) => x.id === editing.id);
       const updated = { id: editing.id, text, url };
+      if (kid) updated.kid = true;
       const prev = findItem(editing.key, editing.meal, editing.id);
       if (prev && prev.ing && prev.url === url) updated.ing = prev.ing;
       if (idx >= 0 && meal === editing.meal) list[idx] = updated;
@@ -903,6 +909,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     for (const k of keys) {
       const day = prepared(k);
       const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), text, url: useUrl };
+      if (kid) entry.kid = true;
       if (ing) entry.ing = clone(ing);
       day[meal].push(entry);
       saveDay(k, day);
@@ -1491,7 +1498,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       const add = el('button', { class: 'btn primary', type: 'button' }, '식단에 넣기');
       add.addEventListener('click', () => {
         closeUseUp();
-        openEditor(dateKey(new Date()), r.e.meal || 'dinner', null, document.getElementById('useup-open'), { text: r.e.name, url: r.e.url });
+        openEditor(dateKey(new Date()), r.e.meal || 'dinner', null, document.getElementById('useup-open'), { text: r.e.name, url: r.e.url, kid: r.e.kid });
       });
       ul.append(el('li', { class: 'rec' }, el('div', { class: 'rec-main' }, name, usedLine, second), add));
     }
