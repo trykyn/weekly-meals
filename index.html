@@ -342,17 +342,17 @@ a.item-main .txt {
       <h1>주간식단</h1>
     </div>
     <nav class="weeknav" aria-label="주 이동">
-      <button class="navbtn" id="prev" type="button" aria-label="지난 주">
+      <button class="navbtn" id="prev" type="button" aria-label="이전 7일">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
       </button>
       <div class="range" aria-live="polite">
         <strong id="range-label"></strong>
         <small id="range-sub"></small>
       </div>
-      <button class="navbtn" id="next" type="button" aria-label="다음 주">
+      <button class="navbtn" id="next" type="button" aria-label="다음 7일">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
       </button>
-      <button class="today-btn" id="today" type="button">이번 주</button>
+      <button class="today-btn" id="today" type="button">오늘</button>
       <button class="navbtn acct-btn" id="acct-open" type="button" aria-label="함께 보기 설정">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10" cy="7" r="3.2"/><path d="M3.8 17c.9-3.2 3.3-4.8 6.2-4.8s5.3 1.6 6.2 4.8"/></svg>
         <span class="acct-dot" id="acct-dot" hidden></span>
@@ -439,13 +439,10 @@ a.item-main .txt {
   const pad = (n) => String(n).padStart(2, '0');
   const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-  const startOfWeek = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
-  const isoWeek = (d) => {
-    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
-    const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-    return { year: t.getUTCFullYear(), week: Math.ceil(((t - y0) / 864e5 + 1) / 7) };
-  };
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dowName = (d) => DOW[(d.getDay() + 6) % 7];
+  const dowClass = (d) => (d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : null);
+  const daysBetween = (a, b) => Math.round((startOfDay(b) - startOfDay(a)) / 864e5);
   const fromKey = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 
   /* ---------- links ---------- */
@@ -481,7 +478,8 @@ a.item-main .txt {
   /* ---------- state + storage ---------- */
   // This device keeps the whole plan in localStorage. When signed in, the household document
   // shared with the 장보기 app mirrors it under its `meals` field (see the module script below).
-  let weekStart = startOfWeek(new Date());
+  // The view always shows 7 days in a row; it opens on today, so today's meals sit on top.
+  let viewStart = startOfDay(new Date());
 
   const local = {
     load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch { return {}; } },
@@ -552,13 +550,14 @@ a.item-main .txt {
 
   function render() {
     const todayKey = dateKey(new Date());
-    const end = addDays(weekStart, 6);
-    const sameMonth = end.getMonth() === weekStart.getMonth();
+    const end = addDays(viewStart, 6);
+    const sameMonth = end.getMonth() === viewStart.getMonth();
     document.getElementById('range-label').textContent =
-      `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일 – ${sameMonth ? '' : (end.getMonth() + 1) + '월 '}${end.getDate()}일`;
-    const wk = isoWeek(weekStart);
-    document.getElementById('range-sub').textContent = `${wk.year}년 ${wk.week}주차`;
-    document.getElementById('today').disabled = dateKey(weekStart) === dateKey(startOfWeek(new Date()));
+      `${viewStart.getMonth() + 1}월 ${viewStart.getDate()}일 – ${sameMonth ? '' : (end.getMonth() + 1) + '월 '}${end.getDate()}일`;
+    const offset = daysBetween(new Date(), viewStart);
+    document.getElementById('range-sub').textContent =
+      offset === 0 ? '오늘부터 7일' : offset > 0 ? `${offset}일 뒤부터 7일` : `${-offset}일 전부터 7일`;
+    document.getElementById('today').disabled = offset === 0;
 
     const frag = document.createDocumentFragment();
     const labels = el('div', { class: 'labels', 'aria-hidden': 'true' }, el('div'));
@@ -567,13 +566,13 @@ a.item-main .txt {
 
     let filled = 0, links = 0;
     for (let i = 0; i < 7; i++) {
-      const d = addDays(weekStart, i);
+      const d = addDays(viewStart, i);
       const key = dateKey(d);
       const data = days[key] || {};
       const isToday = key === todayKey;
-      const col = el('section', { class: 'day' + (isToday ? ' is-today' : ''), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일 ${DOW[i]}요일` });
+      const col = el('section', { class: 'day' + (isToday ? ' is-today' : ''), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일 ${dowName(d)}요일` });
       col.append(el('header', { class: 'day-head' },
-        el('span', { class: 'dow' + (i === 5 ? ' sat' : i === 6 ? ' sun' : '') }, DOW[i]),
+        el('span', { class: 'dow' + (dowClass(d) ? ' ' + dowClass(d) : '') }, dowName(d)),
         el('span', { class: 'dnum' }, String(d.getDate())),
         isToday ? el('span', { class: 'today-tag' }, '오늘') : null));
       for (const m of MEALS) {
@@ -596,7 +595,7 @@ a.item-main .txt {
 
     const sum = document.getElementById('summary');
     sum.replaceChildren(
-      '이번 주 ', el('strong', null, `${filled}`), ` / ${MEALS.length * 7}칸 채움`,
+      '7일 동안 ', el('strong', null, `${filled}`), ` / ${MEALS.length * 7}칸 채움`,
       links ? ' · 링크 ' : '', links ? el('strong', null, `${links}개`) : '');
   }
 
@@ -633,7 +632,7 @@ a.item-main .txt {
     returnFocus = trigger || null;
     const d = fromKey(key);
     document.getElementById('sheet-title').textContent = item ? '메뉴 수정' : '메뉴 추가';
-    document.getElementById('sheet-when').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${DOW[(d.getDay() + 6) % 7]}요일`;
+    document.getElementById('sheet-when').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${dowName(d)}요일`;
     form.elements.meal.value = meal;
     buildDayPick(key);
     document.getElementById('day-pick-wrap').hidden = !!item;
@@ -649,15 +648,17 @@ a.item-main .txt {
   // Day checkboxes for the week of the clicked date; the clicked day starts checked.
   const dayPick = document.getElementById('day-pick');
   function buildDayPick(key) {
-    const start = startOfWeek(fromKey(key));
+    // The 7 days on screen; fall back to a 7-day run from the clicked date if it is off screen.
+    const offset = daysBetween(viewStart, fromKey(key));
+    const start = offset >= 0 && offset < 7 ? viewStart : fromKey(key);
     dayPick.replaceChildren();
     for (let i = 0; i < 7; i++) {
       const d = addDays(start, i);
       const k = dateKey(d);
-      const input = el('input', { type: 'checkbox', id: 'day-' + i, value: k, 'data-weekday': i < 5 ? '1' : null });
+      const input = el('input', { type: 'checkbox', id: 'day-' + i, value: k, 'data-weekday': dowClass(d) ? null : '1' });
       input.checked = k === key;
-      dayPick.append(input, el('label', { for: 'day-' + i, class: i === 5 ? 'sat' : i === 6 ? 'sun' : null },
-        el('b', null, DOW[i]), el('span', null, String(d.getDate()))));
+      dayPick.append(input, el('label', { for: 'day-' + i, class: dowClass(d) },
+        el('b', null, dowName(d)), el('span', null, String(d.getDate()))));
     }
   }
   document.getElementById('pick-weekdays').addEventListener('click', () => {
@@ -836,9 +837,21 @@ a.item-main .txt {
   });
 
   /* ---------- week nav ---------- */
-  document.getElementById('prev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); render(); });
-  document.getElementById('next').addEventListener('click', () => { weekStart = addDays(weekStart, 7); render(); });
-  document.getElementById('today').addEventListener('click', () => { weekStart = startOfWeek(new Date()); render(); });
+  document.getElementById('prev').addEventListener('click', () => { viewStart = addDays(viewStart, -7); render(); });
+  document.getElementById('next').addEventListener('click', () => { viewStart = addDays(viewStart, 7); render(); });
+  document.getElementById('today').addEventListener('click', () => { viewStart = startOfDay(new Date()); render(); });
+
+  // Opening the app on a new day (it may have stayed open in the background) moves the view to today.
+  let lastToday = dateKey(new Date());
+  function followToday() {
+    const now = dateKey(new Date());
+    if (now === lastToday) return;
+    if (dateKey(viewStart) === lastToday) viewStart = startOfDay(new Date());
+    lastToday = now;
+    render();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) followToday(); });
+  setInterval(followToday, 60 * 1000);
 
   render();
   renderAccount();
