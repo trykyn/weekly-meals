@@ -818,11 +818,11 @@ a.item-main .txt {
   // is skipped and pasting a recipe or typing 재료 still works.
   const READER_URL = '';
 
-  const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라';
+  const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라|기호껏|간\\s?맞추기|간\\s?맞춤';
   const AMOUNT_AT = new RegExp(`[0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS}`, 'u');
   const UNIT_RE = /\d\s*(kg|g|mg|ml|l|cc|컵|큰술|작은술|숟가락|스푼|티스푼|T|t|개|알|모|쪽|줌|꼬집|대|뿌리|장|봉지|팩|캔|통|단|포기|마리|토막|조각|덩이|공기|톨|줄기)/i;
   const RE_HEAD = /^[^\p{L}\p{N}]*(주\s*재료|부\s*재료|기본\s*재료|재료|양념\s*장?|소스|드레싱|ingredients?)(?=$|[^\p{L}])/iu;
-  const RE_STOP = /^[^\p{L}\p{N}]*(만드는|만들기|조리\s*(법|방법|순서)|요리\s*(법|순서|방법)|레시피\s*(순서|방법)|순서|방법|how\s*to|directions|instructions|method|tip\b|팁)/iu;
+  const RE_STOP = /^[^\p{L}\p{N}]*(만드는|만들기|조리\s*(법|방법|순서)|요리\s*(법|순서|방법)|레시피\s*(순서|방법)|순서|방법|how\s*to|directions|instructions|method|tip\b|팁|(레시피|recipe)[\s:：]*$)/iu;
   const LEAD_JUNK = /^[\s\p{P}\p{S}\p{Extended_Pictographic}️‍]+/u;
   const TRAIL_JUNK = /[\s\p{Extended_Pictographic}️‍]+$/u;
 
@@ -865,6 +865,8 @@ a.item-main .txt {
       blanks = 0;
       const head = line.match(RE_HEAD);
       if (head) {
+        // Many videos repeat the list in English; once Korean 재료 are found, skip the English copy.
+        if (/^ingredients?$/i.test(head[1]) && out.length) { inList = false; continue; }
         inList = true;
         // "재료 (2인분)", "[양념]", "재료: 김치 1/4포기, 두부 1모"
         const rest = line.slice(head[0].length)
