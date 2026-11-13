@@ -818,20 +818,30 @@ a.item-main .txt {
   // is skipped and pasting a recipe or typing 재료 still works.
   const READER_URL = 'https://weekly-meals-reader.weekly-meals-reader.workers.dev/read';
 
-  const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라|기호껏|간\\s?맞추기|간\\s?맞춤';
+  const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라|취향에\\s?따라|기호껏|간\\s?맞추기|간\\s?맞춤';
+  const AMOUNTISH = new RegExp(`^(약\\s*)?([0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS})`, 'u');
   const AMOUNT_AT = new RegExp(`[0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS}`, 'u');
   const UNIT_RE = /\d\s*(kg|g|mg|ml|l|cc|컵|큰술|작은술|숟가락|스푼|티스푼|T|t|개|알|모|쪽|줌|꼬집|대|뿌리|장|봉지|팩|캔|통|단|포기|마리|토막|조각|덩이|공기|톨|줄기)/i;
   const RE_HEAD = /^[^\p{L}\p{N}]*(주\s*재료|부\s*재료|기본\s*재료|재료|양념\s*장?|소스|드레싱|ingredients?)(?=$|[^\p{L}])/iu;
+  // A short heading that ends in the keyword: "※ 닭볶음탕 양념", "[불고기 소스]"
+  const RE_HEAD_TAIL = /^([^\p{L}\p{N}]*)([\p{L}\s]{0,15}\s)(재료|양념\s*장?|소스|드레싱)[\s:：\]】)]*$/u;
   const RE_STOP = /^[^\p{L}\p{N}]*(만드는|만들기|조리\s*(법|방법|순서)|요리\s*(법|순서|방법)|레시피\s*(순서|방법)|순서|방법|how\s*to|directions|instructions|method|tip\b|팁|준비물|도구|주의\s*사항|참고|(레시피|recipe)[\s:：]*$)/iu;
   const LEAD_JUNK = /^[\s\p{P}\p{S}\p{Extended_Pictographic}️‍]+/u;
   const TRAIL_JUNK = /[\s\p{Extended_Pictographic}️‍]+$/u;
 
-  const looksLikeSentence = (l) =>
-    l.length > 45 || /(요|다|니다|세요|해요|어요|아요)[.!~♡♥\s\p{Extended_Pictographic}️]*$/u.test(l);
+  // Long lines are sentences, unless they are comma lists ("닭 1마리, 감자 2개, 양파 1/2개, …").
+  const looksLikeSentence = (l) => {
+    const t = String(l).replace(/\s*⟦[^⟧]*⟧/g, '');
+    return (t.length > 45 && !/[,，、]/.test(t)) || t.length > 200 ||
+      /(요|다|니다|세요|해요|어요|아요)[.!~♡♥\s\p{Extended_Pictographic}️]*$/u.test(t);
+  };
 
   // "돼지고기 앞다리살 300g" → { name: "돼지고기 앞다리살", amount: "300g" }
   function splitNameAmount(piece) {
-    let s = String(piece).replace(LEAD_JUNK, '').replace(/^\d+[.)]\s+/, '').replace(TRAIL_JUNK, '').trim();
+    // Amounts written in brackets come in as ⟦…⟧ ("닭 ⟦1마리-1.5kg⟧"); used only when no other amount is given.
+    const bracketed = [];
+    let s = String(piece).replace(/\s*⟦([^⟧]*)⟧/g, (_, a) => { bracketed.push(a.trim()); return ''; });
+    s = s.replace(LEAD_JUNK, '').replace(/^\d+[.)]\s+/, '').replace(TRAIL_JUNK, '').trim();
     if (!s || s.length > 40) return null;
     let name = s, amount = '';
     const idx = s.search(AMOUNT_AT);
@@ -843,6 +853,7 @@ a.item-main .txt {
       name = m[2];
     } else if (idx > 0) { name = s.slice(0, idx); amount = s.slice(idx).trim(); }
     name = name.replace(/[\s:：\-–=]+$/, '').trim();
+    if (!amount && bracketed.length) amount = bracketed[0];
     if (!name || name.length > 20 || /^(물|생수|얼음|찬물|끓는\s*물)$/.test(name)) return null;
     return { name, amount: amount.slice(0, 30) };
   }
@@ -854,11 +865,16 @@ a.item-main .txt {
   // Finds the 재료 / 양념 lists in a recipe text. Works when the recipe writes its 재료 as a list,
   // which Notion recipes, most YouTube descriptions and many reels captions do.
   function parseIngredients(text) {
-    // Notes in brackets ("200g (실온에 두기)") are dropped so they don't read as sentences or split on their commas.
+    // Brackets: a short amount ("닭(1마리)", "후추(취향에 따라)") is kept as ⟦…⟧; any other note
+    // ("200g (실온에 두기)") is dropped so it doesn't read as a sentence or split on its commas.
+    const bracket = (_, inner) => {
+      const t = inner.trim();
+      return t.length <= 20 && AMOUNTISH.test(t) && !t.includes(',') ? ` ⟦${t}⟧` : '';
+    };
     const lines = String(text || '').replace(/\r/g, '').split('\n')
       .map((l) => {
         let prev;
-        do { prev = l; l = l.replace(/\s*(\([^()]*\)|（[^（）]*）)/g, ''); } while (l !== prev); // nested ( ( ) )
+        do { prev = l; l = l.replace(/\s*[(（]([^()（）]*)[)）]/g, bracket); } while (l !== prev); // nested ( ( ) )
         return l.replace(/\s*[(（][^)）]*$/, '').trim(); // a bracket left open to the end of the line
       });
     const out = [], seen = new Set();
@@ -875,6 +891,8 @@ a.item-main .txt {
     for (const line of lines) {
       if (!line) { if (inList && ++blanks >= 2) inList = false; continue; }
       blanks = 0;
+      const tail = !/\d/.test(line) && line.match(RE_HEAD_TAIL);
+      if (tail && (/^(재료|양념)/.test(tail[3]) || tail[1].trim())) { inList = true; continue; }
       const head = line.match(RE_HEAD);
       if (head) {
         // Many videos repeat the list in English; once Korean 재료 are found, skip the English copy.
