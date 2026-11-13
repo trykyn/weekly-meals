@@ -816,7 +816,7 @@ a.item-main .txt {
   // Browsers can't read Notion/YouTube/Instagram pages from here, so a small free server fetches the text;
   // the 재료 list is then found by the rules in parseIngredients below. With READER_URL empty, link reading
   // is skipped and pasting a recipe or typing 재료 still works.
-  const READER_URL = '';
+  const READER_URL = 'https://weekly-meals-reader.weekly-meals-reader.workers.dev/read';
 
   const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라|기호껏|간\\s?맞추기|간\\s?맞춤';
   const AMOUNT_AT = new RegExp(`[0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS}`, 'u');
