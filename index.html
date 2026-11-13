@@ -78,6 +78,8 @@ body::before {
   z-index: 10; background: var(--yolk);
 }
 button, input { font: inherit; color: inherit; }
+/* iPhone zooms in on any text box under 16px when it is tapped, and stays zoomed afterwards. */
+input, textarea, select { font-size: max(16px, 1em); }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--yolk-strong); outline-offset: 2px; border-radius: 6px; }
 
@@ -271,7 +273,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .paste summary { cursor: pointer; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .paste textarea {
   width: 100%; min-height: 96px; resize: vertical; padding: 10px 12px; border-radius: 10px;
-  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 15px;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 16px;
 }
 
 .foot {
@@ -295,9 +297,10 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .acct-body .who { color: var(--ink); font-weight: 600; }
 .acct-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .acct-row input {
-  flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 10px; letter-spacing: .08em;
-  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-size: 16px; text-transform: uppercase;
+  flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 10px;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-size: 16px;
 }
+#acct-code { letter-spacing: .08em; text-transform: uppercase; } /* only the 가족 코드 box */
 .code {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 17px; letter-spacing: .12em;
   background: var(--yolk-soft); padding: 8px 12px; border-radius: 10px; user-select: all;
