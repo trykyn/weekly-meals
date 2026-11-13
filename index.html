@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFC61A">
+<meta name="apple-mobile-web-app-title" content="주간식단">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>주간식단</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=Jua&display=swap">
+<style>
+/* Layout: a yolk-yellow header band over a week grid — meal rows (점심·저녁·기타) × 7 day columns; on phones each day becomes a card with its three meals side by side. */
+:root {
+  --bg: #FFF5C7;
+  --surface: #FFFDF3;
+  --yolk: #FFC61A;
+  --yolk-strong: #E9A400;
+  --yolk-soft: #FFEB99;
+  --ink: #2A2413;
+  --muted: #7B6A3E;
+  --line: #F0DB8C;
+  --on-yolk: #2A2413;
+  --on-brand: #FFFFFF;
+  --sat: #2F6AD0;
+  --sun: #D23F3F;
+  --yt: #E1302A;
+  --ig: #C2338A;
+  --link: #6E5C2A;
+  --danger: #C23A2E;
+  --bowl: #D9481F;
+  --rice: #FFFFFF;
+  --rice-dot: #EADFC0;
+  --scrim: rgba(42, 36, 19, .38);
+  --shadow: 0 1px 0 rgba(130, 95, 0, .06), 0 6px 18px -10px rgba(130, 95, 0, .35);
+  --font-display: "Jua", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16130B; --surface: #221E12; --yolk: #FFC93A; --yolk-strong: #FFD460; --yolk-soft: #3B3114;
+    --ink: #F7EFD5; --muted: #BDAE83; --line: #3A3320; --on-yolk: #2A2413; --on-brand: #FFFFFF;
+    --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E;
+    --bowl: #E8562C; --rice: #FFFDF3; --rice-dot: #D9CDA8;
+    --scrim: rgba(0, 0, 0, .6); --shadow: 0 6px 18px -10px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16130B; --surface: #221E12; --yolk: #FFC93A; --yolk-strong: #FFD460; --yolk-soft: #3B3114;
+  --ink: #F7EFD5; --muted: #BDAE83; --line: #3A3320; --on-yolk: #2A2413; --on-brand: #FFFFFF;
+  --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E;
+  --bowl: #E8562C; --rice: #FFFDF3; --rice-dot: #D9CDA8;
+  --scrim: rgba(0, 0, 0, .6); --shadow: 0 6px 18px -10px rgba(0, 0, 0, .7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--yolk);
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--yolk-strong); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- header ---------- */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--yolk); color: var(--on-yolk);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.top-inner {
+  max-width: 1320px; margin: 0 auto; padding-block: 12px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; letter-spacing: -.01em; line-height: 1; }
+.logo { width: 38px; height: 38px; flex: none; }
+.weeknav { display: flex; align-items: center; gap: 6px; }
+.navbtn {
+  width: 36px; height: 36px; border-radius: 50%; border: 0;
+  background: rgba(42, 36, 19, .1); color: var(--on-yolk);
+  display: grid; place-items: center;
+}
+.navbtn:hover { background: rgba(42, 36, 19, .18); }
+.navbtn svg { width: 18px; height: 18px; }
+.range { display: flex; flex-direction: column; align-items: center; min-width: 150px; padding-inline: 4px; }
+.range strong { font-family: var(--font-display); font-weight: 400; font-size: 19px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.range small { font-size: 12px; opacity: .72; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.today-btn {
+  margin-left: 4px; height: 36px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--on-yolk);
+  background: transparent; color: var(--on-yolk); font-weight: 600;
+}
+.today-btn:hover { background: var(--on-yolk); color: var(--yolk); }
+.today-btn[disabled] { opacity: .35; pointer-events: none; }
+
+/* ---------- board ---------- */
+.wrap {
+  max-width: 1320px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 40px;
+}
+.board {
+  display: grid;
+  grid-template-columns: 58px repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto repeat(3, minmax(120px, auto));
+  gap: 8px;
+}
+.labels, .day { grid-row: 1 / span 4; display: grid; grid-template-rows: subgrid; }
+.labels { color: var(--muted); }
+.row-label {
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+  padding-left: 2px;
+}
+.row-label span { font-family: var(--font-display); font-size: 18px; color: var(--ink); line-height: 1.1; }
+.row-label small { font-size: 11px; line-height: 1.3; }
+
+.day-head {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 6px 8px 4px; border-radius: 10px;
+}
+.dow { font-weight: 600; font-size: 13px; }
+.dow.sat { color: var(--sat); }
+.dow.sun { color: var(--sun); }
+.dnum { font-family: var(--font-display); font-size: 22px; line-height: 1; font-variant-numeric: tabular-nums; }
+.today-tag {
+  margin-left: auto; align-self: center; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  background: var(--ink); color: var(--bg); padding: 1px 8px; border-radius: 999px;
+}
+.day.is-today .day-head { background: var(--yolk); color: var(--on-yolk); }
+.day.is-today .day-head .dow { color: var(--on-yolk); }
+.day.is-today .today-tag { background: var(--on-yolk); color: var(--yolk); }
+
+.slot {
+  position: relative; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 6px; cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.slot:hover { border-color: var(--yolk-strong); box-shadow: var(--shadow); }
+.day.is-today .slot { border-color: var(--yolk); border-width: 2px; padding: 5px; }
+.slot-label { display: none; font-family: var(--font-display); font-size: 15px; color: var(--muted); padding: 0 4px; }
+
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.item { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
+.item-main {
+  flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 5px;
+  padding: 4px 6px; border-radius: 8px; border: 0; background: none;
+  color: var(--ink); text-decoration: none; text-align: left; line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.item-main:hover { background: var(--yolk-soft); }
+a.item-main .txt {
+  text-decoration: underline; text-decoration-thickness: 2px;
+  text-decoration-color: var(--yolk-strong); text-underline-offset: 3px;
+}
+.ico { width: 15px; height: 15px; flex: none; margin-top: 2px; }
+.item-edit {
+  flex: none; width: 26px; height: 26px; border: 0; border-radius: 7px; background: none;
+  color: var(--muted); display: grid; place-items: center; opacity: 0;
+}
+.item-edit svg { width: 14px; height: 14px; }
+.item:hover .item-edit, .item-edit:focus-visible { opacity: 1; }
+.item-edit:hover { background: var(--yolk-soft); color: var(--ink); }
+
+.add {
+  margin-top: auto; align-self: stretch; text-align: left;
+  border: 0; background: none; color: var(--muted); font-size: 12.5px;
+  padding: 4px 6px; border-radius: 8px; opacity: 0;
+}
+.slot:hover .add, .add:focus-visible, .slot.is-empty .add { opacity: 1; }
+.slot.is-empty .add { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+.add:hover { background: var(--yolk-soft); color: var(--ink); }
+@media (hover: none) {
+  .item-edit { opacity: .6; }
+  .add { opacity: 1; }
+}
+
+.foot {
+  margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px;
+  color: var(--muted); font-size: 13px;
+}
+.foot strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.status {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: none;
+  color: var(--muted); font-size: 13px; padding: 4px 0; text-decoration: underline;
+  text-decoration-color: var(--line); text-underline-offset: 3px;
+}
+.status:hover { color: var(--ink); }
+.acct-btn { position: relative; margin-left: 2px; }
+.acct-dot {
+  position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%;
+  background: #3BA55C; box-shadow: 0 0 0 2px var(--yolk);
+}
+.acct-body { display: flex; flex-direction: column; gap: 12px; }
+.acct-body p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.acct-body .who { color: var(--ink); font-weight: 600; }
+.acct-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.acct-row input {
+  flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 10px; letter-spacing: .08em;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-size: 16px; text-transform: uppercase;
+}
+.code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 17px; letter-spacing: .12em;
+  background: var(--yolk-soft); padding: 8px 12px; border-radius: 10px; user-select: all;
+}
+.btn.line { background: none; border: 1.5px solid var(--line); color: var(--ink); }
+.btn.line:hover { border-color: var(--yolk-strong); }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.status[data-state="synced"]::before { background: #3BA55C; }
+.status[data-state="local"]::before { background: var(--yolk-strong); }
+.status[data-state="error"]::before, .status[data-state="slow"]::before { background: var(--danger); }
+.legend { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.legend span { display: inline-flex; gap: 4px; align-items: center; }
+
+/* ---------- phone layout ---------- */
+@media (max-width: 900px) {
+  .board { display: flex; flex-direction: column; gap: 14px; }
+  .labels { display: none; }
+  .day {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: none; gap: 6px;
+  }
+  .day-head { grid-column: 1 / -1; padding: 6px 10px; }
+  .slot { min-height: 84px; }
+  .slot-label { display: block; }
+  .range { min-width: 0; }
+}
+@media (max-width: 340px) {
+  .day { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- editor sheet ---------- */
+.backdrop {
+  position: fixed; inset: 0; z-index: 20; background: var(--scrim);
+  display: flex; align-items: center; justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.sheet {
+  width: min(440px, 100%); background: var(--surface); color: var(--ink);
+  border-radius: 20px; padding: 20px; box-shadow: 0 20px 60px -20px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; gap: 14px;
+  animation: rise .18s ease-out;
+}
+@keyframes rise { from { transform: translateY(12px); opacity: .6; } to { transform: none; opacity: 1; } }
+.sheet-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 22px; }
+.sheet-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.meal-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.meal-pick input, .day-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.day-pick-wrap { display: flex; flex-direction: column; gap: 6px; }
+.day-pick-head { display: flex; justify-content: space-between; align-items: center; }
+.day-pick-head > span { font-size: 13px; font-weight: 600; }
+.day-pick-head small { font-weight: 400; color: var(--muted); margin-left: 4px; font-size: 12px; }
+.chip-link {
+  border: 0; background: var(--yolk-soft); color: var(--ink); font-size: 12.5px; font-weight: 600;
+  padding: 4px 10px; border-radius: 999px;
+}
+.chip-link:hover { background: var(--yolk); color: var(--on-yolk); }
+.day-pick { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.day-pick label {
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: 6px 0 5px; border-radius: 10px; border: 1.5px solid var(--line); cursor: pointer;
+  color: var(--muted); line-height: 1.2; user-select: none;
+}
+.day-pick label b { font-weight: 600; font-size: 13px; }
+.day-pick label span { font-family: var(--font-display); font-size: 16px; font-variant-numeric: tabular-nums; }
+.day-pick label.sat b { color: var(--sat); }
+.day-pick label.sun b { color: var(--sun); }
+.day-pick input:checked + label { background: var(--yolk); border-color: var(--yolk); color: var(--on-yolk); }
+.day-pick input:checked + label b { color: var(--on-yolk); }
+.day-pick input:focus-visible + label { outline: 3px solid var(--yolk-strong); outline-offset: 2px; }
+.meal-pick label {
+  text-align: center; padding: 8px 0; border-radius: 10px; border: 1.5px solid var(--line);
+  font-family: var(--font-display); font-size: 16px; cursor: pointer; color: var(--muted);
+}
+.meal-pick input:checked + label { background: var(--yolk); border-color: var(--yolk); color: var(--on-yolk); }
+.meal-pick input:focus-visible + label { outline: 3px solid var(--yolk-strong); outline-offset: 2px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font-size: 13px; font-weight: 600; }
+.field em { font-style: normal; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.field input {
+  width: 100%; height: 44px; padding: 0 12px; border-radius: 10px;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-size: 16px;
+}
+.field input:focus { outline: none; border-color: var(--yolk-strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--yolk) 45%, transparent); }
+.hint { margin: -6px 0 0; min-height: 1.4em; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.hint.err { color: var(--danger); }
+.sheet-actions { display: flex; gap: 8px; align-items: center; }
+.sheet-actions .spacer { flex: 1; }
+.btn { height: 42px; padding: 0 18px; border-radius: 999px; border: 0; font-weight: 600; }
+.btn.primary { background: var(--yolk); color: var(--on-yolk); }
+.btn.primary:hover { background: var(--yolk-strong); }
+.btn.ghost { background: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--ink); background: var(--yolk-soft); }
+.btn.danger { background: none; color: var(--danger); padding: 0 10px; }
+.btn.danger.armed { background: var(--danger); color: var(--surface); padding: 0 14px; }
+@media (max-width: 600px) {
+  .backdrop { align-items: flex-end; padding: 0; }
+  .sheet {
+    width: 100%; border-radius: 20px 20px 0 0;
+    padding: 20px max(18px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; }
+  .slot { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="20" fill="var(--surface)"/>
+        <path d="M27.5 6.5 19 17.5M31.5 8.5 21.5 18" stroke="var(--link)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M8.5 19.5c2-3.6 5.8-5.5 11.5-5.5s9.5 1.9 11.5 5.5z" fill="var(--rice)"/>
+        <circle cx="14" cy="17.6" r="1" fill="var(--rice-dot)"/><circle cx="19" cy="16.2" r="1" fill="var(--rice-dot)"/><circle cx="24.5" cy="17.4" r="1" fill="var(--rice-dot)"/>
+        <path d="M7 19.5h26c0 6.6-5.4 11.5-13 11.5S7 26.1 7 19.5z" fill="var(--bowl)"/>
+        <path d="M10 23.5h20" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+        <rect x="15" y="30.5" width="10" height="2.6" rx="1.3" fill="var(--bowl)"/>
+      </svg>
+      <h1>주간식단</h1>
+    </div>
+    <nav class="weeknav" aria-label="주 이동">
+      <button class="navbtn" id="prev" type="button" aria-label="지난 주">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+      </button>
+      <div class="range" aria-live="polite">
+        <strong id="range-label"></strong>
+        <small id="range-sub"></small>
+      </div>
+      <button class="navbtn" id="next" type="button" aria-label="다음 주">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+      </button>
+      <button class="today-btn" id="today" type="button">이번 주</button>
+      <button class="navbtn acct-btn" id="acct-open" type="button" aria-label="함께 보기 설정">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10" cy="7" r="3.2"/><path d="M3.8 17c.9-3.2 3.3-4.8 6.2-4.8s5.3 1.6 6.2 4.8"/></svg>
+        <span class="acct-dot" id="acct-dot" hidden></span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="board" id="board"></div>
+  <div class="foot">
+    <span id="summary"></span>
+    <span class="legend" aria-label="링크 표시">
+      <span id="lg-yt"></span><span id="lg-ig"></span><span id="lg-link"></span>
+    </span>
+    <button class="status" id="status" type="button" data-state="local">이 기기에만 저장돼요</button>
+  </div>
+</main>
+
+<div class="backdrop" id="acct" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="acct-title">
+    <div class="sheet-head">
+      <h2 id="acct-title">함께 보기</h2>
+      <p>장보기 앱과 같은 가족 코드로 연결돼요.</p>
+    </div>
+    <div class="acct-body" id="acct-body"></div>
+    <div class="sheet-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="acct-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="backdrop" id="sheet" hidden>
+  <form class="sheet" id="sheet-form" role="dialog" aria-modal="true" aria-labelledby="sheet-title" novalidate>
+    <div class="sheet-head">
+      <h2 id="sheet-title">메뉴 추가</h2>
+      <p id="sheet-when"></p>
+    </div>
+    <div class="meal-pick" role="radiogroup" aria-label="끼니" id="meal-pick"></div>
+    <div class="day-pick-wrap" id="day-pick-wrap">
+      <div class="day-pick-head">
+        <span>날짜<small>여러 날 고를 수 있어요</small></span>
+        <button type="button" class="chip-link" id="pick-weekdays">월–금 모두</button>
+      </div>
+      <div class="day-pick" id="day-pick" role="group" aria-label="날짜 선택"></div>
+    </div>
+    <label class="field" for="f-text">
+      <span>메뉴</span>
+      <input id="f-text" maxlength="80" autocomplete="off" placeholder="예: 토스트">
+    </label>
+    <label class="field" for="f-url">
+      <span>링크<em>선택 · 릴스나 유튜브 주소</em></span>
+      <input id="f-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
+    </label>
+    <p class="hint" id="f-hint"></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn danger" id="f-delete" hidden>삭제</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="f-cancel">취소</button>
+      <button type="submit" class="btn primary">저장</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(() => {
+  const MEALS = [
+    { key: 'lunch', label: '점심', hint: '' },
+    { key: 'dinner', label: '저녁', hint: '' },
+    { key: 'other', label: '기타', hint: '간식·음료' },
+  ];
+  const DOW = ['월', '화', '수', '목', '금', '토', '일'];
+  const LS_KEY = 'yolk-meals-v1';
+
+  const ICONS = {
+    youtube: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="0.5" y="2.5" width="15" height="11" rx="3.2" fill="var(--yt)"/><path d="M6.4 5.4v5.2L10.8 8z" fill="var(--on-brand)"/></svg>',
+    instagram: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="var(--ig)" stroke-width="1.7"><rect x="1.5" y="1.5" width="13" height="13" rx="4"/><circle cx="8" cy="8" r="3"/><circle cx="12" cy="4" r=".6" fill="var(--ig)" stroke="none"/></svg>',
+    link: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="var(--link)" stroke-width="1.7" stroke-linecap="round"><path d="M6.6 9.4a3 3 0 0 0 4.2 0l2.1-2.1a3 3 0 0 0-4.2-4.2l-.9.9"/><path d="M9.4 6.6a3 3 0 0 0-4.2 0L3.1 8.7a3 3 0 0 0 4.2 4.2l.9-.9"/></svg>',
+    pencil: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.8 2.7a1.6 1.6 0 0 1 2.3 2.3L5.6 12.5 2.5 13.5l1-3.1z"/></svg>',
+  };
+
+  /* ---------- dates ---------- */
+  const pad = (n) => String(n).padStart(2, '0');
+  const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const startOfWeek = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+  const isoWeek = (d) => {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+    const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return { year: t.getUTCFullYear(), week: Math.ceil(((t - y0) / 864e5 + 1) / 7) };
+  };
+  const fromKey = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+
+  /* ---------- links ---------- */
+  function normUrl(raw) {
+    let s = (raw || '').trim();
+    if (!s) return '';
+    const m = s.match(/https?:\/\/[^\s<>"']+/i);
+    if (m) s = m[0];
+    else if (/^(www\.|m\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(s) && !/\s/.test(s)) s = 'https://' + s;
+    else return null;
+    try {
+      const u = new URL(s);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+      return u.href;
+    } catch { return null; }
+  }
+  function platform(url) {
+    try {
+      const host = new URL(url).hostname.toLowerCase().replace(/^(www|m)\./, '');
+      if (host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com')) return 'youtube';
+      if (host === 'instagram.com' || host.endsWith('.instagram.com')) return 'instagram';
+    } catch {}
+    return 'link';
+  }
+  function defaultLabel(url) {
+    const p = platform(url);
+    if (p === 'youtube') return /\/shorts\//.test(url) ? '유튜브 쇼츠' : '유튜브 영상';
+    if (p === 'instagram') return /\/reels?\//.test(url) ? '인스타 릴스' : '인스타그램';
+    return '링크';
+  }
+  const PLATFORM_NAME = { youtube: '유튜브', instagram: '인스타그램', link: '웹' };
+
+  /* ---------- state + storage ---------- */
+  // This device keeps the whole plan in localStorage. When signed in, the household document
+  // shared with the 장보기 app mirrors it under its `meals` field (see the module script below).
+  let weekStart = startOfWeek(new Date());
+
+  const local = {
+    load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; } catch { return {}; } },
+    save(all) { try { localStorage.setItem(LS_KEY, JSON.stringify(all)); return true; } catch { return false; } },
+    get(k, fallback) { try { const v = localStorage.getItem(LS_KEY + ':' + k); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
+    put(k, v) { try { localStorage.setItem(LS_KEY + ':' + k, JSON.stringify(v)); } catch {} },
+  };
+  let days = local.load();
+  // Dates changed while not connected; sent to the household on the next connect.
+  const unsynced = new Set(local.get('unsynced', []));
+
+  const statusEl = document.getElementById('status');
+  function setStatus(state, text) { statusEl.dataset.state = state; statusEl.textContent = text; }
+
+  const clone = (o) => JSON.parse(JSON.stringify(o || {}));
+  const isEmptyDay = (d) => MEALS.every((m) => !(d && d[m.key] && d[m.key].length));
+  function cleanDay(d) {
+    const out = {};
+    for (const m of MEALS) out[m.key] = (d[m.key] || []).map((it) => ({ id: String(it.id), text: String(it.text || ''), url: String(it.url || '') }));
+    return out;
+  }
+
+  function saveDay(key, data) {
+    const empty = isEmptyDay(data);
+    if (empty) delete days[key]; else days[key] = cleanDay(data);
+    if (!local.save(days)) setStatus('error', '이 기기에 저장하지 못했어요');
+    render();
+    if (window.cloud && window.cloud.live) window.cloud.push(key, empty ? null : days[key]);
+    else { unsynced.add(key); local.put('unsynced', [...unsynced]); }
+  }
+
+  // Hooks for the sync module.
+  window.meals = {
+    days: () => days,
+    unsynced,
+    clearUnsynced() { unsynced.clear(); local.put('unsynced', []); },
+    syncedHouse: () => local.get('house', null),
+    setSyncedHouse: (code) => local.put('house', code),
+    setDays(next) { days = next; local.save(days); render(); },
+    refresh: () => renderAccount(),
+  };
+
+  /* ---------- render ---------- */
+  const board = document.getElementById('board');
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) { if (v === null || v === undefined || v === false) continue; n.setAttribute(k, v === true ? '' : v); }
+    for (const k of kids) if (k !== null && k !== undefined && k !== false) n.append(k);
+    return n;
+  }
+
+  function renderItem(it, key, meal) {
+    const li = el('li', { class: 'item' });
+    let main;
+    if (it.url) {
+      const p = platform(it.url);
+      main = el('a', { class: 'item-main', href: it.url, target: '_blank', rel: 'noopener noreferrer', title: `${PLATFORM_NAME[p]}에서 열기` });
+      main.insertAdjacentHTML('beforeend', ICONS[p]);
+    } else {
+      main = el('button', { class: 'item-main', type: 'button', 'data-edit': it.id, 'data-key': key, 'data-meal': meal });
+    }
+    main.append(el('span', { class: 'txt' }, it.text));
+    const edit = el('button', { class: 'item-edit', type: 'button', 'aria-label': `${it.text} 수정`, 'data-edit': it.id, 'data-key': key, 'data-meal': meal });
+    edit.innerHTML = ICONS.pencil;
+    li.append(main, edit);
+    return li;
+  }
+
+  function render() {
+    const todayKey = dateKey(new Date());
+    const end = addDays(weekStart, 6);
+    const sameMonth = end.getMonth() === weekStart.getMonth();
+    document.getElementById('range-label').textContent =
+      `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일 – ${sameMonth ? '' : (end.getMonth() + 1) + '월 '}${end.getDate()}일`;
+    const wk = isoWeek(weekStart);
+    document.getElementById('range-sub').textContent = `${wk.year}년 ${wk.week}주차`;
+    document.getElementById('today').disabled = dateKey(weekStart) === dateKey(startOfWeek(new Date()));
+
+    const frag = document.createDocumentFragment();
+    const labels = el('div', { class: 'labels', 'aria-hidden': 'true' }, el('div'));
+    for (const m of MEALS) labels.append(el('div', { class: 'row-label' }, el('span', null, m.label), m.hint ? el('small', null, m.hint) : null));
+    frag.append(labels);
+
+    let filled = 0, links = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(weekStart, i);
+      const key = dateKey(d);
+      const data = days[key] || {};
+      const isToday = key === todayKey;
+      const col = el('section', { class: 'day' + (isToday ? ' is-today' : ''), 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일 ${DOW[i]}요일` });
+      col.append(el('header', { class: 'day-head' },
+        el('span', { class: 'dow' + (i === 5 ? ' sat' : i === 6 ? ' sun' : '') }, DOW[i]),
+        el('span', { class: 'dnum' }, String(d.getDate())),
+        isToday ? el('span', { class: 'today-tag' }, '오늘') : null));
+      for (const m of MEALS) {
+        const items = Array.isArray(data[m.key]) ? data[m.key] : [];
+        if (items.length) filled++;
+        links += items.filter((x) => x.url).length;
+        const slot = el('div', { class: 'slot' + (items.length ? '' : ' is-empty'), 'data-key': key, 'data-meal': m.key });
+        slot.append(el('span', { class: 'slot-label' }, m.label));
+        if (items.length) {
+          const ul = el('ul', { class: 'items' });
+          items.forEach((it) => ul.append(renderItem(it, key, m.key)));
+          slot.append(ul);
+        }
+        slot.append(el('button', { class: 'add', type: 'button', 'data-add': '1', 'aria-label': `${d.getMonth() + 1}월 ${d.getDate()}일 ${m.label} 메뉴 추가` }, '+ 추가'));
+        col.append(slot);
+      }
+      frag.append(col);
+    }
+    board.replaceChildren(frag);
+
+    const sum = document.getElementById('summary');
+    sum.replaceChildren(
+      '이번 주 ', el('strong', null, `${filled}`), ` / ${MEALS.length * 7}칸 채움`,
+      links ? ' · 링크 ' : '', links ? el('strong', null, `${links}개`) : '');
+  }
+
+  // legend
+  document.getElementById('lg-yt').innerHTML = ICONS.youtube + '유튜브';
+  document.getElementById('lg-ig').innerHTML = ICONS.instagram + '인스타';
+  document.getElementById('lg-link').innerHTML = ICONS.link + '기타 링크';
+
+  /* ---------- editor ---------- */
+  const sheet = document.getElementById('sheet');
+  const form = document.getElementById('sheet-form');
+  const fText = document.getElementById('f-text');
+  const fUrl = document.getElementById('f-url');
+  const fHint = document.getElementById('f-hint');
+  const fDelete = document.getElementById('f-delete');
+  const mealPick = document.getElementById('meal-pick');
+  MEALS.forEach((m) => {
+    mealPick.append(
+      el('input', { type: 'radio', name: 'meal', id: 'meal-' + m.key, value: m.key }),
+      el('label', { for: 'meal-' + m.key }, m.label));
+  });
+
+  let editing = null; // {key, meal, id|null}
+  let returnFocus = null;
+
+  function findItem(key, meal, id) {
+    const list = (days[key] && days[key][meal]) || [];
+    return list.find((x) => x.id === id) || null;
+  }
+
+  function openEditor(key, meal, id, trigger) {
+    const item = id ? findItem(key, meal, id) : null;
+    editing = { key, meal, id: item ? id : null };
+    returnFocus = trigger || null;
+    const d = fromKey(key);
+    document.getElementById('sheet-title').textContent = item ? '메뉴 수정' : '메뉴 추가';
+    document.getElementById('sheet-when').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${DOW[(d.getDay() + 6) % 7]}요일`;
+    form.elements.meal.value = meal;
+    buildDayPick(key);
+    document.getElementById('day-pick-wrap').hidden = !!item;
+    fText.value = item ? item.text : '';
+    fUrl.value = item ? item.url : '';
+    fDelete.hidden = !item;
+    fDelete.classList.remove('armed'); fDelete.textContent = '삭제';
+    updateHint();
+    sheet.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    setTimeout(() => fText.focus(), 30);
+  }
+  // Day checkboxes for the week of the clicked date; the clicked day starts checked.
+  const dayPick = document.getElementById('day-pick');
+  function buildDayPick(key) {
+    const start = startOfWeek(fromKey(key));
+    dayPick.replaceChildren();
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(start, i);
+      const k = dateKey(d);
+      const input = el('input', { type: 'checkbox', id: 'day-' + i, value: k, 'data-weekday': i < 5 ? '1' : null });
+      input.checked = k === key;
+      dayPick.append(input, el('label', { for: 'day-' + i, class: i === 5 ? 'sat' : i === 6 ? 'sun' : null },
+        el('b', null, DOW[i]), el('span', null, String(d.getDate()))));
+    }
+  }
+  document.getElementById('pick-weekdays').addEventListener('click', () => {
+    const weekdays = [...dayPick.querySelectorAll('input[data-weekday]')];
+    const allOn = weekdays.every((x) => x.checked);
+    weekdays.forEach((x) => { x.checked = !allOn; });
+  });
+
+  function closeEditor() {
+    sheet.hidden = true; editing = null;
+    document.documentElement.style.overflow = '';
+    if (returnFocus && document.contains(returnFocus)) returnFocus.focus();
+  }
+
+  function updateHint(errText) {
+    fHint.classList.toggle('err', !!errText);
+    if (errText) { fHint.textContent = errText; return; }
+    const raw = fUrl.value.trim();
+    if (!raw) { fHint.textContent = ''; return; }
+    const url = normUrl(raw);
+    if (url === null) { fHint.textContent = 'https:// 로 시작하는 주소인지 확인해 주세요'; fHint.classList.add('err'); return; }
+    const p = platform(url);
+    fHint.innerHTML = ICONS[p];
+    fHint.append(`${PLATFORM_NAME[p]} 링크 · 주소는 숨기고 메뉴 이름을 누르면 열려요`);
+  }
+
+  // Pasting a link into the menu field moves it to the link field.
+  fText.addEventListener('input', () => {
+    const m = fText.value.match(/https?:\/\/[^\s<>"']+/i);
+    if (m && !fUrl.value.trim()) {
+      fUrl.value = m[0];
+      fText.value = fText.value.replace(m[0], '').replace(/\s{2,}/g, ' ').trim();
+      updateHint();
+    }
+  });
+  fUrl.addEventListener('input', () => updateHint());
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!editing) return;
+    let text = fText.value.trim();
+    const url = fUrl.value.trim() ? normUrl(fUrl.value) : '';
+    if (url === null) { updateHint('https:// 로 시작하는 주소인지 확인해 주세요'); fUrl.focus(); return; }
+    if (!text && !url) { updateHint('메뉴 이름이나 링크를 적어 주세요'); fText.focus(); return; }
+    if (!text) text = defaultLabel(url);
+    const meal = form.elements.meal.value || editing.meal;
+    const prepared = (k) => {
+      const day = clone(days[k]);
+      MEALS.forEach((m) => { if (!Array.isArray(day[m.key])) day[m.key] = []; });
+      return day;
+    };
+    if (editing.id) {
+      const day = prepared(editing.key);
+      const list = day[editing.meal];
+      const idx = list.findIndex((x) => x.id === editing.id);
+      const updated = { id: editing.id, text, url };
+      if (idx >= 0 && meal === editing.meal) list[idx] = updated;
+      else { if (idx >= 0) list.splice(idx, 1); day[meal].push(updated); }
+      const key = editing.key;
+      closeEditor();
+      saveDay(key, day);
+      return;
+    }
+    const keys = [...dayPick.querySelectorAll('input:checked')].map((x) => x.value);
+    if (!keys.length) { updateHint('날짜를 하나 이상 골라 주세요'); return; }
+    closeEditor();
+    for (const k of keys) {
+      const day = prepared(k);
+      day[meal].push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), text, url });
+      saveDay(k, day);
+    }
+  });
+
+  fDelete.addEventListener('click', () => {
+    if (!editing || !editing.id) return;
+    if (!fDelete.classList.contains('armed')) {
+      fDelete.classList.add('armed'); fDelete.textContent = '한 번 더 누르면 삭제';
+      return;
+    }
+    const day = clone(days[editing.key]);
+    day[editing.meal] = (day[editing.meal] || []).filter((x) => x.id !== editing.id);
+    const key = editing.key;
+    closeEditor();
+    saveDay(key, day);
+  });
+  document.getElementById('f-cancel').addEventListener('click', closeEditor);
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeEditor(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!sheet.hidden) closeEditor(); else if (!acct.hidden) closeAcct();
+  });
+
+  /* ---------- 함께 보기 (account) ---------- */
+  const acct = document.getElementById('acct');
+  const acctBody = document.getElementById('acct-body');
+  function openAcct() { acct.hidden = false; document.documentElement.style.overflow = 'hidden'; renderAccount(); }
+  function closeAcct() { acct.hidden = true; document.documentElement.style.overflow = ''; }
+  document.getElementById('acct-open').addEventListener('click', openAcct);
+  statusEl.addEventListener('click', openAcct);
+  document.getElementById('acct-close').addEventListener('click', closeAcct);
+  acct.addEventListener('click', (e) => { if (e.target === acct) closeAcct(); });
+
+  function renderAccount() {
+    const c = window.cloud;
+    document.getElementById('acct-dot').hidden = !(c && c.live);
+    if (c && c.error) setStatus('error', c.error);
+    else if (c && c.live) setStatus('synced', '가족과 함께 보는 중');
+    else if (c && c.user && c.ready) setStatus('local', '가족 코드를 연결하면 함께 볼 수 있어요');
+    else setStatus('local', '이 기기에만 저장돼요 · 함께 보기');
+    if (acct.hidden) return;
+
+    const btn = (act, cls, label) => el('button', { class: 'btn ' + cls, type: 'button', 'data-acct': act }, label);
+    acctBody.replaceChildren();
+    if (!c || !c.ready) {
+      acctBody.append(el('p', null, window.FIREBASE_CONFIG ? '연결을 준비하고 있어요…' : '이 버전에서는 함께 보기를 쓸 수 없어요.'));
+    } else if (c.unavailable) {
+      acctBody.append(el('p', null, '인터넷에 연결되면 함께 보기를 쓸 수 있어요. 식단은 이 기기에 그대로 저장돼요.'));
+    } else if (!c.user) {
+      acctBody.append(
+        el('p', null, '구글로 로그인하면 휴대폰, 컴퓨터, 가족이 같은 식단을 봐요. 장보기 앱에서 쓰는 계정으로 로그인하면 같은 가족과 바로 연결돼요.'),
+        el('div', { class: 'acct-row' }, btn('signin', 'primary', '구글로 로그인')));
+    } else {
+      acctBody.append(el('p', null, '로그인: ', el('span', { class: 'who' }, c.user.email || c.user.displayName || '')));
+      if (!c.house) {
+        acctBody.append(
+          el('p', null, '장보기 앱의 가족 코드를 넣거나, 새 코드를 만드세요.'),
+          el('div', { class: 'acct-row' },
+            el('input', { id: 'acct-code', placeholder: '가족 코드', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', 'aria-label': '가족 코드' }),
+            btn('join', 'primary', '연결')),
+          el('div', { class: 'acct-row' }, btn('create', 'line', '새 가족 코드 만들기')));
+      } else {
+        acctBody.append(
+          el('p', null, '가족 코드 · 가족이 이 코드로 연결하면 같은 식단을 봐요.'),
+          el('div', { class: 'acct-row' }, el('span', { class: 'code' }, c.house), btn('copy', 'line', '복사')));
+      }
+      acctBody.append(el('div', { class: 'acct-row' }, btn('signout', 'ghost', '로그아웃')));
+    }
+    if (c && c.note) acctBody.append(el('p', { class: 'hint err' }, c.note));
+  }
+
+  acctBody.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-acct]');
+    const c = window.cloud;
+    if (!b || !c) return;
+    const act = b.dataset.acct;
+    c.note = '';
+    if (act === 'copy') {
+      try { await navigator.clipboard.writeText(c.house); b.textContent = '복사됨'; }
+      catch { const r = document.createRange(); r.selectNodeContents(acctBody.querySelector('.code')); getSelection().removeAllRanges(); getSelection().addRange(r); }
+      return;
+    }
+    b.disabled = true;
+    try {
+      if (act === 'signin') await c.signIn();
+      else if (act === 'signout') await c.signOut();
+      else if (act === 'create') await c.create();
+      else if (act === 'join') {
+        const ok = await c.join(document.getElementById('acct-code').value);
+        if (!ok) c.note = '그 코드를 찾을 수 없어요. 다시 확인해 주세요';
+      }
+    } catch (err) {
+      console.warn(err);
+      if (!(err && /popup-closed|cancelled-popup/.test(err.code || '')))
+        c.note = act === 'signin' ? '로그인하지 못했어요. 다시 시도해 주세요' : '연결하지 못했어요. 인터넷 연결을 확인해 주세요';
+    }
+    b.disabled = false;
+    renderAccount();
+  });
+
+  board.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) { openEditor(editBtn.dataset.key, editBtn.dataset.meal, editBtn.dataset.edit, editBtn); return; }
+    if (e.target.closest('a')) return; // link opens in a new tab
+    const slot = e.target.closest('.slot');
+    if (slot) openEditor(slot.dataset.key, slot.dataset.meal, null, slot.querySelector('.add'));
+  });
+
+  /* ---------- week nav ---------- */
+  document.getElementById('prev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); render(); });
+  document.getElementById('next').addEventListener('click', () => { weekStart = addDays(weekStart, 7); render(); });
+  document.getElementById('today').addEventListener('click', () => { weekStart = startOfWeek(new Date()); render(); });
+
+  render();
+  renderAccount();
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+<script src="firebase-config.js"></script>
+<script type="module">
+// ---------- 함께 보기 (Firebase) ----------
+// Same Firebase project and household as the 장보기 app: households/{가족 코드}.
+// The meal plan lives in that document's `meals` field as meals.{YYYY-MM-DD} = { lunch, dinner, other };
+// the 장보기 app never touches that field. Each change uploads one day, so two phones don't overwrite each other's days.
+const cfg = window.FIREBASE_CONFIG, M = window.meals;
+if (cfg && M) {
+  const cloud = window.cloud = { ready: false, user: null, house: null, live: false, error: '', note: '' };
+  M.refresh();
+  let A, F, initializeApp;
+  try {
+    const V = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    [{ initializeApp }, A, F] = await Promise.all(
+      [import(V + 'firebase-app.js'), import(V + 'firebase-auth.js'), import(V + 'firebase-firestore.js')]);
+  } catch (e) {
+    console.warn('firebase', e);
+    cloud.ready = true; cloud.unavailable = true; M.refresh();
+  }
+  if (A) {
+    const fb = initializeApp(cfg), auth = A.getAuth(fb);
+    const db = F.initializeFirestore(fb, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
+    const house = () => F.doc(db, 'households', cloud.house);
+    const field = (k) => new F.FieldPath('meals', k);
+    let unsub = null;
+
+    const fail = (e) => { console.warn('sync', e); cloud.error = '서버에 저장하지 못했어요. 인터넷 연결을 확인해 주세요'; M.refresh(); };
+    const ok = () => { if (cloud.error) { cloud.error = ''; M.refresh(); } };
+
+    function stop() { if (unsub) unsub(); unsub = null; cloud.live = false; }
+    function listen() {
+      stop();
+      let first = true;
+      unsub = F.onSnapshot(house(), (snap) => {
+        if (!snap.exists()) return;
+        const remote = JSON.parse(JSON.stringify(snap.data().meals || {}));
+        if (first) {
+          first = false;
+          // First contact with this household on this device: add the days only this device has.
+          // Afterwards: send only the days changed while not connected.
+          const mine = M.days(), firstTime = M.syncedHouse() !== cloud.house, args = [];
+          for (const k of Object.keys(mine)) {
+            if ((firstTime && !remote[k]) || M.unsynced.has(k)) { args.push(field(k), mine[k]); remote[k] = mine[k]; }
+          }
+          for (const k of M.unsynced) if (!mine[k] && remote[k]) { args.push(field(k), F.deleteField()); delete remote[k]; }
+          M.clearUnsynced();
+          M.setSyncedHouse(cloud.house);
+          if (args.length) F.updateDoc(house(), ...args).then(ok, fail);
+          cloud.live = true;
+        }
+        M.setDays(remote);
+        M.refresh();
+      }, (e) => { stop(); fail(e); });
+    }
+    async function link(code) {
+      cloud.house = code;
+      await F.setDoc(F.doc(db, 'users', auth.currentUser.uid), { house: code });
+      listen();
+    }
+
+    cloud.push = (k, v) => F.updateDoc(house(), field(k), v === null ? F.deleteField() : v).then(ok, fail);
+    cloud.signIn = () => A.signInWithPopup(auth, new A.GoogleAuthProvider());
+    cloud.signOut = async () => { stop(); cloud.house = null; await A.signOut(auth); };
+    cloud.create = async () => {
+      const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const code = [...crypto.getRandomValues(new Uint8Array(10))].map((n) => abc[n % abc.length]).join('');
+      await F.setDoc(F.doc(db, 'households', code), { stores: {}, items: {}, stock: {}, meals: {}, created: Date.now() });
+      await link(code);
+    };
+    cloud.join = async (raw) => {
+      const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!code || !(await F.getDoc(F.doc(db, 'households', code))).exists()) return false;
+      await link(code);
+      return true;
+    };
+
+    A.onAuthStateChanged(auth, async (user) => {
+      cloud.user = user;
+      if (!user) { stop(); cloud.house = null; }
+      else if (!cloud.house) {
+        try {
+          const u = await F.getDoc(F.doc(db, 'users', user.uid));
+          if (u.exists() && u.data().house) cloud.house = u.data().house;
+        } catch (e) { console.warn('sync', e); }
+        if (cloud.house) listen();
+      }
+      cloud.ready = true;
+      M.refresh();
+    });
+  }
+}
+</script>
+</body>
+</html>
