@@ -1,0 +1,5 @@
+name = "weekly-meals-reader"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# No secrets: this worker only reads public recipe pages for signed-in users of the app.

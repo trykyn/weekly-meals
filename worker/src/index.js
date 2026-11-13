@@ -1,0 +1,256 @@
+// 주간식단 링크 읽기 서버 (Cloudflare Worker, 무료 요금제)
+// POST /read  { url }  with  Authorization: Bearer <Firebase ID token>
+// → { kind, title, text, read }
+//
+// Browsers can't read Notion, YouTube or Instagram pages from another site, so this small server
+// fetches the page and returns its recipe text. The app then finds the 재료 list itself.
+// No AI and no paid service; only people signed in to the app (same Firebase project) can use it.
+
+const FIREBASE_PROJECT = "shopping-list-ae06d";
+const ALLOWED_ORIGINS = ["https://trykyn.github.io", "http://localhost:8765"];
+const MAX_TEXT = 60000;
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+export default {
+  async fetch(request) {
+    const origin = request.headers.get("Origin") || "";
+    const cors = {
+      "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type",
+      "Access-Control-Max-Age": "86400",
+      Vary: "Origin",
+    };
+    const json = (body, status = 200) =>
+      new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
+
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    if (request.method !== "POST" || new URL(request.url).pathname !== "/read") return json({ error: "not_found" }, 404);
+
+    try {
+      await verifyFirebaseToken((request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
+    } catch {
+      return json({ error: "unauthorized" }, 401);
+    }
+
+    let body;
+    try { body = await request.json(); } catch { return json({ error: "bad_request" }, 400); }
+    const url = String(body.url || "").trim().slice(0, 2000);
+    if (!url) return json({ error: "bad_request" }, 400);
+
+    let source;
+    try { source = await readLink(url); }
+    catch (e) { console.warn("read failed", url, String(e)); source = { kind: linkKind(url), title: "", text: "" }; }
+    const text = (source.text || "").slice(0, MAX_TEXT);
+    return json({ kind: source.kind, title: source.title || "", text, read: Boolean(text) });
+  },
+};
+
+/* ---------- Firebase sign-in check ---------- */
+
+let keyCache = { keys: null, until: 0 };
+async function googleKeys() {
+  if (keyCache.keys && Date.now() < keyCache.until) return keyCache.keys;
+  const r = await fetch("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com");
+  const { keys } = await r.json();
+  const maxAge = Number(((r.headers.get("Cache-Control") || "").match(/max-age=(\d+)/) || [])[1] || 3600);
+  keyCache = { keys, until: Date.now() + maxAge * 1000 };
+  return keys;
+}
+const b64url = (s) => {
+  const b = s.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(b + "=".repeat((4 - (b.length % 4)) % 4)), (c) => c.charCodeAt(0));
+};
+async function verifyFirebaseToken(token) {
+  const [h, p, sig] = String(token).split(".");
+  if (!h || !p || !sig) throw new Error("malformed");
+  const dec = new TextDecoder();
+  const header = JSON.parse(dec.decode(b64url(h)));
+  const payload = JSON.parse(dec.decode(b64url(p)));
+  if (header.alg !== "RS256") throw new Error("alg");
+  const jwk = (await googleKeys()).find((k) => k.kid === header.kid);
+  if (!jwk) throw new Error("kid");
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64url(sig), new TextEncoder().encode(`${h}.${p}`));
+  if (!ok) throw new Error("signature");
+  const now = Date.now() / 1000;
+  if (payload.aud !== FIREBASE_PROJECT || payload.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT}`) throw new Error("audience");
+  if (!payload.sub || payload.exp < now - 60 || payload.iat > now + 300) throw new Error("expired");
+  return payload;
+}
+
+/* ---------- reading links ---------- */
+
+function linkKind(raw) {
+  try {
+    const host = new URL(raw).hostname.replace(/^(www|m)\./, "");
+    if (host === "youtu.be" || host.endsWith("youtube.com")) return "youtube";
+    if (host.endsWith("instagram.com")) return "instagram";
+    if (host.endsWith("notion.site") || host.endsWith("notion.so")) return "notion";
+  } catch {}
+  return "web";
+}
+
+async function get(url, init = {}) {
+  const r = await fetch(url, {
+    redirect: "follow",
+    ...init,
+    headers: { "User-Agent": UA, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8", ...(init.headers || {}) },
+  });
+  if (!r.ok) throw new Error(`http ${r.status} ${url}`);
+  return r;
+}
+
+async function readLink(raw) {
+  const u = new URL(raw);
+  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("protocol");
+  const kind = linkKind(raw);
+  if (kind === "youtube") return readYouTube(u);
+  if (kind === "instagram") return readInstagram(u);
+  if (kind === "notion") return readNotion(u);
+  return readWebPage(u);
+}
+
+// YouTube: title and description (where recipe channels usually list the 재료).
+async function readYouTube(u) {
+  let id = null;
+  if (u.hostname.endsWith("youtu.be")) id = u.pathname.slice(1).split("/")[0];
+  else id = u.searchParams.get("v") || (u.pathname.match(/\/(shorts|embed|live)\/([\w-]{6,})/) || [])[2];
+  if (!id) return readWebPage(u);
+  const watch = `https://www.youtube.com/watch?v=${id}`;
+  let title = "", text = "";
+  try {
+    const html = await (await get(`${watch}&hl=ko`)).text();
+    const player = jsonAfter(html, "ytInitialPlayerResponse = ");
+    title = player?.videoDetails?.title || "";
+    text = player?.videoDetails?.shortDescription || "";
+  } catch (e) { console.warn("youtube page", String(e)); }
+  if (!title) {
+    try { title = (await (await get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watch)}`)).json()).title || ""; } catch {}
+  }
+  return { kind: "youtube", title, text };
+}
+
+// Instagram: the public embed page usually carries the caption without a login.
+async function readInstagram(u) {
+  const m = u.pathname.match(/\/(p|reel|reels|tv)\/([\w-]+)/);
+  if (!m) return readWebPage(u);
+  let text = "";
+  try {
+    const html = await (await get(`https://www.instagram.com/p/${m[2]}/embed/captioned/`)).text();
+    const cap = html.match(/<div class="Caption"[^>]*>([\s\S]*?)<div class="CaptionComments/);
+    if (cap) text = htmlToText(cap[1].replace(/<a[^>]*class="CaptionUsername"[^>]*>[\s\S]*?<\/a>/, ""));
+    if (!text) {
+      const j = html.match(/"edge_media_to_caption":\{"edges":\[\{"node":\{"text":"((?:[^"\\]|\\.)*)"/);
+      if (j) text = JSON.parse(`"${j[1]}"`);
+    }
+  } catch (e) { console.warn("instagram embed", String(e)); }
+  if (!text) {
+    try { text = metaContent(await (await get(u.href)).text(), "og:description"); } catch {}
+  }
+  return { kind: "instagram", title: "", text: text.trim() };
+}
+
+// Notion: public pages (shared to the web) through Notion's page-loading endpoint.
+async function readNotion(u) {
+  const hex = (u.pathname.replace(/-/g, "").match(/[0-9a-f]{32}(?=$|\/|\?)/i) || [])[0] || (u.pathname.match(/[0-9a-f]{32}/i) || [])[0];
+  if (!hex) return readWebPage(u);
+  const pageId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`.toLowerCase();
+  const api = u.hostname.endsWith("notion.site") ? `${u.origin}/api/v3/loadCachedPageChunk` : "https://www.notion.so/api/v3/loadCachedPageChunk";
+  try {
+    const blocks = {};
+    let cursor = { stack: [] };
+    for (let chunk = 0; chunk < 5; chunk++) {
+      const r = await get(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page: { id: pageId }, limit: 100, cursor, chunkNumber: chunk, verticalColumns: false }),
+      });
+      const data = await r.json();
+      for (const [id, rec] of Object.entries(data?.recordMap?.block || {})) blocks[id] = rec?.value?.value || rec?.value;
+      cursor = data?.cursor;
+      if (!cursor || !cursor.stack || !cursor.stack.length) break;
+    }
+    const lines = [];
+    const plain = (prop) => (Array.isArray(prop) ? prop.map((seg) => (Array.isArray(seg) ? seg[0] : "")).join("") : "");
+    const walk = (id, depth) => {
+      const b = blocks[id];
+      if (!b || depth > 6) return;
+      const t = plain(b.properties?.title);
+      if (t) lines.push((b.type === "bulleted_list" || b.type === "numbered_list" || b.type === "to_do" ? "- " : "") + t);
+      for (const child of b.content || []) walk(child, depth + 1);
+    };
+    walk(pageId, 0);
+    const page = blocks[pageId];
+    const title = page ? plain(page.properties?.title) : "";
+    if (lines.length) return { kind: "notion", title, text: lines.join("\n") };
+  } catch (e) { console.warn("notion", String(e)); }
+  const fallback = await readWebPage(u);
+  return { ...fallback, kind: "notion" };
+}
+
+// Any other page: a schema.org Recipe if the site has one, otherwise the page text.
+async function readWebPage(u) {
+  const html = await (await get(u.href)).text();
+  const title = metaContent(html, "og:title") || htmlToText((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "");
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const recipe = findRecipe(JSON.parse(m[1]));
+      if (recipe && Array.isArray(recipe.recipeIngredient)) {
+        return { kind: "web", title: recipe.name || title, text: `재료:\n${recipe.recipeIngredient.map((x) => `- ${x}`).join("\n")}` };
+      }
+    } catch {}
+  }
+  const body = (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [])[1] || html;
+  return { kind: "web", title, text: htmlToText(body) };
+}
+
+function findRecipe(node) {
+  if (!node || typeof node !== "object") return null;
+  if (Array.isArray(node)) { for (const n of node) { const r = findRecipe(n); if (r) return r; } return null; }
+  const type = node["@type"];
+  if (type === "Recipe" || (Array.isArray(type) && type.includes("Recipe"))) return node;
+  return findRecipe(node["@graph"]);
+}
+
+/* ---------- small text helpers ---------- */
+
+function jsonAfter(html, marker) {
+  const i = html.indexOf(marker);
+  if (i < 0) return null;
+  const start = i + marker.length;
+  const end = html.indexOf(";</script>", start);
+  const raw = html.slice(start, end > 0 ? end : undefined).replace(/;\s*var\s+\w+\s*=[\s\S]*$/, "");
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function metaContent(html, prop) {
+  const re = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i");
+  const re2 = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${prop}["']`, "i");
+  const m = html.match(re) || html.match(re2);
+  return m ? decodeEntities(m[1]) : "";
+}
+
+function htmlToText(html) {
+  return decodeEntities(
+    String(html)
+      .replace(/<(script|style|noscript|svg|template)[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|li|h[1-6]|tr|section|article)>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "- ")
+      .replace(/<[^>]+>/g, " ")
+  )
+    .replace(/[ \t ]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&");
+}

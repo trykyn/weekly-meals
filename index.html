@@ -175,13 +175,23 @@ a.item-main .txt {
   text-decoration-color: var(--yolk-strong); text-underline-offset: 3px;
 }
 .ico { width: 16px; height: 16px; flex: none; margin-top: 2px; }
-.item-edit {
-  flex: none; width: 26px; height: 26px; border: 0; border-radius: 7px; background: none;
-  color: var(--muted); display: grid; place-items: center; opacity: 0;
+.item { position: relative; }
+.item-tools { flex: none; display: flex; gap: 2px; }
+.item-tools button {
+  width: 28px; height: 28px; border: 0; border-radius: 7px; background: none;
+  color: var(--muted); display: grid; place-items: center;
 }
-.item-edit svg { width: 14px; height: 14px; }
-.item:hover .item-edit, .item-edit:focus-visible { opacity: 1; }
-.item-edit:hover { background: var(--yolk-soft); color: var(--ink); }
+.item-tools svg { width: 15px; height: 15px; }
+.item-tools button:hover { background: var(--yolk-soft); color: var(--ink); }
+.item-tools .item-cart { color: var(--yolk-strong); }
+/* Wide screens with a mouse: the tools float over the name on hover, so narrow day columns keep the full name. */
+@media (hover: hover) and (min-width: 901px) {
+  .item-tools {
+    position: absolute; right: 0; top: 0; padding: 2px; border-radius: 9px;
+    background: var(--surface); box-shadow: var(--shadow); opacity: 0; pointer-events: none;
+  }
+  .item:hover .item-tools, .item-tools:focus-within { opacity: 1; pointer-events: auto; }
+}
 
 /* Tapping anywhere in a meal box adds a menu; this button stays only for keyboards and screen readers. */
 .add {
@@ -189,8 +199,32 @@ a.item-main .txt {
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
 .slot:has(.add:focus-visible) { outline: 3px solid var(--yolk-strong); outline-offset: 2px; }
-@media (hover: none) {
-  .item-edit { opacity: .6; }
+
+/* ---------- 장보기 sheet ---------- */
+.shop-body { display: flex; flex-direction: column; gap: 12px; max-height: min(58vh, 520px); overflow-y: auto; }
+.shop-msg { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.55; }
+.shop-msg.warn { background: var(--yolk-soft); color: var(--ink); padding: 10px 12px; border-radius: 10px; }
+.shop-msg.err { color: var(--danger); }
+.shop-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 18px 0; }
+.spinner {
+  width: 20px; height: 20px; border-radius: 50%; flex: none;
+  border: 3px solid var(--yolk-soft); border-top-color: var(--yolk-strong); animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ing-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ing-list li { border-bottom: 1px solid var(--line); }
+.ing-list li:last-child { border-bottom: 0; }
+.ing-list label { display: flex; align-items: center; gap: 10px; padding: 9px 2px; cursor: pointer; }
+.ing-list input { width: 20px; height: 20px; accent-color: var(--yolk-strong); flex: none; }
+.ing-name { font-weight: 600; font-size: 15.5px; }
+.ing-amount { color: var(--muted); font-size: 13px; margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; }
+.ing-have { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.ing-list li.have .ing-name { color: var(--muted); }
+.paste { display: flex; flex-direction: column; gap: 8px; }
+.paste summary { cursor: pointer; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.paste textarea {
+  width: 100%; min-height: 96px; resize: vertical; padding: 10px 12px; border-radius: 10px;
+  border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 15px;
 }
 
 .foot {
@@ -368,6 +402,22 @@ a.item-main .txt {
   </div>
 </main>
 
+<div class="backdrop" id="shop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shop-title">
+    <div class="sheet-head">
+      <h2 id="shop-title">장보기</h2>
+      <p id="shop-sub"></p>
+    </div>
+    <div class="shop-body" id="shop-body"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" id="shop-retry" hidden>다시 찾기</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="shop-close">닫기</button>
+      <button type="button" class="btn primary" id="shop-add" hidden>슈퍼마켓에 넣기</button>
+    </div>
+  </div>
+</div>
+
 <div class="backdrop" id="acct" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="acct-title">
     <div class="sheet-head">
@@ -428,6 +478,7 @@ a.item-main .txt {
     youtube: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="0.5" y="2.5" width="15" height="11" rx="3.2" fill="var(--yt)"/><path d="M6.4 5.4v5.2L10.8 8z" fill="var(--on-brand)"/></svg>',
     instagram: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="var(--ig)" stroke-width="1.7"><rect x="1.5" y="1.5" width="13" height="13" rx="4"/><circle cx="8" cy="8" r="3"/><circle cx="12" cy="4" r=".6" fill="var(--ig)" stroke="none"/></svg>',
     link: '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="var(--link)" stroke-width="1.7" stroke-linecap="round"><path d="M6.6 9.4a3 3 0 0 0 4.2 0l2.1-2.1a3 3 0 0 0-4.2-4.2l-.9.9"/><path d="M9.4 6.6a3 3 0 0 0-4.2 0L3.1 8.7a3 3 0 0 0 4.2 4.2l.9-.9"/></svg>',
+    cart: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 2.5h2l1.6 7.2h7l1.4-5.2H4.2"/><circle cx="6.2" cy="12.9" r="1.1"/><circle cx="11.4" cy="12.9" r="1.1"/></svg>',
     pencil: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.8 2.7a1.6 1.6 0 0 1 2.3 2.3L5.6 12.5 2.5 13.5l1-3.1z"/></svg>',
   };
 
@@ -494,7 +545,17 @@ a.item-main .txt {
   const isEmptyDay = (d) => MEALS.every((m) => !(d && d[m.key] && d[m.key].length));
   function cleanDay(d) {
     const out = {};
-    for (const m of MEALS) out[m.key] = (d[m.key] || []).map((it) => ({ id: String(it.id), text: String(it.text || ''), url: String(it.url || '') }));
+    for (const m of MEALS) out[m.key] = (d[m.key] || []).map((it) => {
+      const x = { id: String(it.id), text: String(it.text || ''), url: String(it.url || '') };
+      // Ingredients found earlier for this menu, kept so the next 장보기 needs no new lookup.
+      if (it.ing && Array.isArray(it.ing.list)) {
+        x.ing = {
+          dish: String(it.ing.dish || ''), src: !!it.ing.src, kind: String(it.ing.kind || ''),
+          list: it.ing.list.slice(0, 60).map((i) => ({ name: String(i.name || ''), amount: String(i.amount || '') })),
+        };
+      }
+      return x;
+    });
     return out;
   }
 
@@ -540,7 +601,9 @@ a.item-main .txt {
     main.append(el('span', { class: 'txt' }, it.text));
     const edit = el('button', { class: 'item-edit', type: 'button', 'aria-label': `${it.text} 수정`, 'data-edit': it.id, 'data-key': key, 'data-meal': meal });
     edit.innerHTML = ICONS.pencil;
-    li.append(main, edit);
+    const cart = el('button', { class: 'item-cart', type: 'button', 'aria-label': `${it.text} 재료 장보기`, title: '장보기에 재료 넣기', 'data-shop': it.id, 'data-key': key, 'data-meal': meal });
+    cart.innerHTML = ICONS.cart;
+    li.append(main, el('span', { class: 'item-tools' }, cart, edit));
     return li;
   }
 
@@ -711,6 +774,8 @@ a.item-main .txt {
       const list = day[editing.meal];
       const idx = list.findIndex((x) => x.id === editing.id);
       const updated = { id: editing.id, text, url };
+      const prev = findItem(editing.key, editing.meal, editing.id);
+      if (prev && prev.ing && prev.url === url) updated.ing = prev.ing;
       if (idx >= 0 && meal === editing.meal) list[idx] = updated;
       else { if (idx >= 0) list.splice(idx, 1); day[meal].push(updated); }
       const key = editing.key;
@@ -744,7 +809,266 @@ a.item-main .txt {
   sheet.addEventListener('click', (e) => { if (e.target === sheet) closeEditor(); });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!sheet.hidden) closeEditor(); else if (!acct.hidden) closeAcct();
+    if (!sheet.hidden) closeEditor(); else if (!shop.hidden) closeShop(); else if (!acct.hidden) closeAcct();
+  });
+
+  /* ---------- 장보기: 재료 from the menu's link into the 장보기 app (no AI, no cost) ---------- */
+  // Browsers can't read Notion/YouTube/Instagram pages from here, so a small free server fetches the text;
+  // the 재료 list is then found by the rules in parseIngredients below. With READER_URL empty, link reading
+  // is skipped and pasting a recipe or typing 재료 still works.
+  const READER_URL = '';
+
+  const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라';
+  const AMOUNT_AT = new RegExp(`[0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS}`, 'u');
+  const UNIT_RE = /\d\s*(kg|g|mg|ml|l|cc|컵|큰술|작은술|숟가락|스푼|티스푼|T|t|개|알|모|쪽|줌|꼬집|대|뿌리|장|봉지|팩|캔|통|단|포기|마리|토막|조각|덩이|공기|톨|줄기)/i;
+  const RE_HEAD = /^[^\p{L}\p{N}]*(주\s*재료|부\s*재료|기본\s*재료|재료|양념\s*장?|소스|드레싱|ingredients?)(?=$|[^\p{L}])/iu;
+  const RE_STOP = /^[^\p{L}\p{N}]*(만드는|만들기|조리\s*(법|방법|순서)|요리\s*(법|순서|방법)|레시피\s*(순서|방법)|순서|방법|how\s*to|directions|instructions|method|tip\b|팁)/iu;
+  const LEAD_JUNK = /^[\s\p{P}\p{S}\p{Extended_Pictographic}️‍]+/u;
+  const TRAIL_JUNK = /[\s\p{Extended_Pictographic}️‍]+$/u;
+
+  const looksLikeSentence = (l) =>
+    l.length > 45 || /(요|다|니다|세요|해요|어요|아요)[.!~♡♥\s\p{Extended_Pictographic}️]*$/u.test(l);
+
+  // "돼지고기 앞다리살 300g" → { name: "돼지고기 앞다리살", amount: "300g" }
+  function splitNameAmount(piece) {
+    let s = String(piece).replace(LEAD_JUNK, '').replace(/^\d+[.)]\s+/, '').replace(TRAIL_JUNK, '').trim();
+    if (!s || s.length > 40) return null;
+    let name = s, amount = '';
+    const idx = s.search(AMOUNT_AT);
+    if (idx === 0) return null;
+    if (idx > 0) { name = s.slice(0, idx); amount = s.slice(idx).trim(); }
+    name = name.replace(/[\s:：\-–=]+$/, '').trim();
+    if (!name || name.length > 20 || /^(물|생수|얼음|찬물|끓는\s*물)$/.test(name)) return null;
+    return { name, amount: amount.slice(0, 30) };
+  }
+  function splitPieces(line) {
+    return String(line).replace(LEAD_JUNK, '')
+      .split(/\s*[,，、]\s*|\s+[·•|]\s+|\s{3,}/)
+      .map((x) => x.trim()).filter(Boolean);
+  }
+  // Finds the 재료 / 양념 lists in a recipe text. Works when the recipe writes its 재료 as a list,
+  // which Notion recipes, most YouTube descriptions and many reels captions do.
+  function parseIngredients(text) {
+    const lines = String(text || '').replace(/\r/g, '').split('\n').map((l) => l.trim());
+    const out = [], seen = new Set();
+    const push = (piece) => {
+      const x = splitNameAmount(piece);
+      if (!x) return;
+      const k = x.name.toLowerCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(x);
+    };
+    let inList = false, blanks = 0;
+    for (const line of lines) {
+      if (!line) { if (inList && ++blanks >= 2) inList = false; continue; }
+      blanks = 0;
+      const head = line.match(RE_HEAD);
+      if (head) {
+        inList = true;
+        // "재료 (2인분)", "[양념]", "재료: 김치 1/4포기, 두부 1모"
+        const rest = line.slice(head[0].length)
+          .replace(/^[\s\]】)>]*(\([^)]*\)|（[^）]*）|\[[^\]]*\])?[\s\]】)>]*[:：\-–]?\s*/, '');
+        splitPieces(rest).forEach(push);
+        continue;
+      }
+      if (!inList) continue;
+      if (line.startsWith('#') || RE_STOP.test(line) || looksLikeSentence(line)) { inList = false; continue; }
+      const numbered = line.match(/^(\d+[.)]|[①-⑳])\s*(.*)$/);
+      if (numbered && !AMOUNT_AT.test(numbered[2])) { inList = false; continue; }
+      splitPieces(line).forEach(push);
+    }
+    if (!out.length) {
+      // No 재료 heading: use lines that read like "이름 300g".
+      const lists = lines.filter((l) => l && !looksLikeSentence(l) && !l.startsWith('#') && UNIT_RE.test(l));
+      if (lists.length >= 3) lists.forEach((l) => splitPieces(l).forEach(push));
+    }
+    return out;
+  }
+  window.parseIngredients = parseIngredients; // handy for checking a recipe text in the console
+
+  const shop = document.getElementById('shop');
+  const shopBody = document.getElementById('shop-body');
+  const shopAdd = document.getElementById('shop-add');
+  const shopRetry = document.getElementById('shop-retry');
+  let shopping = null; // { key, meal, id, item, list: [{name, amount, on}], note, count, added, trigger }
+  let shopSeq = 0;
+
+  const canAddToShopping = () => !!(window.cloud && window.cloud.live);
+  const canReadLinks = () => !!(READER_URL && canAddToShopping());
+  const ownedNames = () => (window.cloud && window.cloud.shoppingNames ? window.cloud.shoppingNames() : new Set());
+  function setList(list, note) {
+    const have = ownedNames();
+    shopping.list = list.map((x) => ({ name: x.name, amount: x.amount || '', on: !have.has(x.name.trim().toLowerCase()) }));
+    shopping.note = note;
+    shopping.count = list.length;
+    renderShop('list');
+  }
+
+  function openShop(key, meal, id, trigger) {
+    const item = findItem(key, meal, id);
+    if (!item) return;
+    shopping = { key, meal, id, item, trigger, list: [] };
+    document.getElementById('shop-sub').textContent = item.text;
+    shop.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    if (item.ing && item.ing.list && item.ing.list.length) setList(item.ing.list, 'saved');
+    else if (item.url && canReadLinks()) readFromLink();
+    else setList([], !item.url ? 'no-link' : !READER_URL ? 'no-reader' : 'login-read');
+  }
+  function closeShop() {
+    shopSeq++;
+    shop.hidden = true;
+    document.documentElement.style.overflow = '';
+    if (shopping && shopping.trigger && document.contains(shopping.trigger)) shopping.trigger.focus();
+    shopping = null;
+  }
+  document.getElementById('shop-close').addEventListener('click', closeShop);
+  shop.addEventListener('click', (e) => { if (e.target === shop) closeShop(); });
+  shopRetry.addEventListener('click', () => readFromLink());
+
+  async function readFromLink() {
+    if (!shopping) return;
+    const seq = ++shopSeq;
+    renderShop('loading');
+    try {
+      const token = await window.cloud.idToken();
+      const r = await fetch(READER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ url: shopping.item.url }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (seq !== shopSeq || !shopping) return;
+      if (!r.ok) { setList(shopping.list, r.status === 401 ? 'expired' : 'read-failed'); return; }
+      const found = parseIngredients(data.text);
+      if (found.length) setList(found, 'found');
+      else setList(shopping.list, !data.read ? (data.kind === 'instagram' ? 'insta-blocked' : 'read-failed') : 'no-section');
+    } catch (err) {
+      console.warn(err);
+      if (seq !== shopSeq || !shopping) return;
+      setList(shopping.list, 'offline');
+    }
+  }
+
+  const NOTES = {
+    saved: ['전에 찾은 재료예요. 필요 없는 재료는 체크를 빼 주세요.', ''],
+    found: ['링크에서 재료 {n}개를 찾았어요. 필요 없는 재료는 체크를 빼 주세요.', ''],
+    pasted: ['붙여넣은 글에서 재료 {n}개를 찾았어요.', ''],
+    'paste-none': ["붙여넣은 글에서 '재료' 목록을 찾지 못했어요. 재료를 직접 적어 주세요.", 'warn'],
+    'no-section': ["링크에서 '재료' 목록을 찾지 못했어요. 영상에서 말로만 소개한 재료는 읽을 수 없어요. 글을 붙여넣거나 재료를 직접 적어 주세요.", 'warn'],
+    'insta-blocked': ['인스타가 글을 보여주지 않았어요. 릴스 글을 복사해서 붙여넣거나 재료를 직접 적어 주세요.', 'warn'],
+    'read-failed': ['링크를 읽지 못했어요. 글을 붙여넣거나 재료를 직접 적어 주세요.', 'warn'],
+    offline: ['인터넷 연결을 확인해 주세요. 재료를 직접 적을 수도 있어요.', 'warn'],
+    expired: ['로그인이 만료됐어요. 로그아웃했다가 다시 로그인해 주세요.', 'warn'],
+    'no-link': ['레시피 글을 붙여넣거나 재료를 직접 적어 주세요.', ''],
+    'no-reader': ['링크 읽기는 아직 준비 중이에요. 레시피 글을 붙여넣거나 재료를 직접 적어 주세요.', ''],
+    'login-read': ['로그인하면 링크에서 재료를 찾아 드려요. 지금은 글을 붙여넣거나 재료를 직접 적어 주세요.', ''],
+    manual: ['필요 없는 재료는 체크를 빼 주세요.', ''],
+  };
+
+  function renderShop(state) {
+    if (!shopping) return;
+    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
+    shopBody.replaceChildren();
+    shopAdd.hidden = true;
+    shopRetry.hidden = true;
+
+    if (state === 'loading') {
+      shopBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), '링크를 읽고 있어요…'));
+      return;
+    }
+    if (state === 'done') {
+      shopBody.append(msg(shopping.added
+        ? `장보기 앱의 슈퍼마켓 목록에 ${shopping.added}개를 넣었어요.`
+        : '고른 재료가 이미 장보기 목록에 모두 있어요.'));
+      return;
+    }
+
+    const [note, cls] = NOTES[shopping.note] || NOTES.manual;
+    shopBody.append(msg(note.replace('{n}', shopping.count), cls));
+
+    const have = ownedNames();
+    if (shopping.list.length) {
+      const ul = el('ul', { class: 'ing-list' });
+      shopping.list.forEach((ing, i) => {
+        const owned = have.has(ing.name.trim().toLowerCase());
+        const box = el('input', { type: 'checkbox', id: 'ing-' + i, 'data-i': String(i) });
+        box.checked = ing.on;
+        ul.append(el('li', { class: owned ? 'have' : null },
+          el('label', { for: 'ing-' + i }, box,
+            el('span', { class: 'ing-name' }, ing.name, owned ? el('span', { class: 'ing-have' }, '· 이미 목록에 있어요') : null),
+            ing.amount ? el('span', { class: 'ing-amount' }, ing.amount) : null)));
+      });
+      shopBody.append(ul);
+    }
+
+    // Type a 재료 yourself
+    const addInput = el('input', { id: 'shop-new', placeholder: '재료 직접 추가 (예: 두부 1모)', autocomplete: 'off', 'aria-label': '재료 직접 추가' });
+    const addBtn = el('button', { class: 'btn line', type: 'button' }, '추가');
+    const addOne = () => {
+      const x = splitNameAmount(addInput.value) || (addInput.value.trim() ? { name: addInput.value.trim().slice(0, 20), amount: '' } : null);
+      if (!x) { addInput.focus(); return; }
+      if (!shopping.list.some((y) => y.name === x.name)) shopping.list.push({ ...x, on: true });
+      if (!['found', 'saved', 'pasted'].includes(shopping.note)) shopping.note = 'manual';
+      renderShop('list');
+      const again = document.getElementById('shop-new');
+      if (again) again.focus();
+    };
+    addBtn.addEventListener('click', addOne);
+    addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addOne(); } });
+    shopBody.append(el('div', { class: 'acct-row' }, addInput, addBtn));
+
+    // Paste a recipe text (e.g. a reel's caption)
+    const area = el('textarea', { id: 'shop-paste', placeholder: '레시피 글이나 릴스 설명을 붙여넣으세요', 'aria-label': '레시피 글' });
+    const findBtn = el('button', { class: 'btn line', type: 'button' }, '이 글에서 재료 찾기');
+    findBtn.addEventListener('click', () => {
+      const t = area.value.trim();
+      if (!t) { area.focus(); return; }
+      const found = parseIngredients(t);
+      if (found.length) setList(found, 'pasted'); else { shopping.note = 'paste-none'; renderShop('list'); }
+    });
+    const details = el('details', { class: 'paste' }, el('summary', null, '레시피 글 붙여넣기'), area, el('div', { class: 'acct-row' }, findBtn));
+    if (!shopping.list.length) details.open = true;
+    shopBody.append(details);
+
+    if (!canAddToShopping()) {
+      const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
+      go.addEventListener('click', () => { closeShop(); openAcct(); });
+      shopBody.append(msg('장보기 앱에 넣으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+    } else {
+      shopAdd.hidden = false;
+      updateShopCount();
+    }
+    if (shopping.item.url && canReadLinks()) shopRetry.hidden = false;
+  }
+
+  function updateShopCount() {
+    const n = shopping ? shopping.list.filter((x) => x.on).length : 0;
+    shopAdd.textContent = n ? `슈퍼마켓에 ${n}개 넣기` : '슈퍼마켓에 넣기';
+    shopAdd.disabled = !n;
+  }
+  shopBody.addEventListener('change', (e) => {
+    const box = e.target.closest('.ing-list input');
+    if (!box || !shopping) return;
+    const x = shopping.list[Number(box.dataset.i)];
+    if (x) x.on = box.checked;
+    updateShopCount();
+  });
+  shopAdd.addEventListener('click', () => {
+    if (!shopping || !canAddToShopping()) return;
+    const picks = shopping.list.filter((x) => x.on);
+    if (!picks.length) return;
+    // Remember this menu's 재료 for next time.
+    const day = clone(days[shopping.key]);
+    const target = (day[shopping.meal] || []).find((x) => x.id === shopping.id);
+    if (target) {
+      target.ing = { dish: '', src: true, kind: '', list: shopping.list.map((x) => ({ name: x.name, amount: x.amount })) };
+      saveDay(shopping.key, day);
+    }
+    const menu = shopping.item.text;
+    shopping.added = window.cloud.addToShopping(picks.map((p) => ({ name: p.name, note: [menu, p.amount].filter(Boolean).join(' · ') })));
+    renderShop('done');
   });
 
   /* ---------- 함께 보기 (account) ---------- */
@@ -825,6 +1149,8 @@ a.item-main .txt {
   });
 
   board.addEventListener('click', (e) => {
+    const shopBtn = e.target.closest('[data-shop]');
+    if (shopBtn) { openShop(shopBtn.dataset.key, shopBtn.dataset.meal, shopBtn.dataset.shop, shopBtn); return; }
     const editBtn = e.target.closest('[data-edit]');
     if (editBtn) { openEditor(editBtn.dataset.key, editBtn.dataset.meal, editBtn.dataset.edit, editBtn); return; }
     if (e.target.closest('a')) return; // link opens in a new tab
@@ -889,6 +1215,7 @@ if (cfg && M) {
       let first = true;
       unsub = F.onSnapshot(house(), (snap) => {
         if (!snap.exists()) return;
+        shopItems = snap.data().items || {};
         const remote = JSON.parse(JSON.stringify(snap.data().meals || {}));
         if (first) {
           first = false;
@@ -915,6 +1242,24 @@ if (cfg && M) {
     }
 
     cloud.push = (k, v) => F.updateDoc(house(), field(k), v === null ? F.deleteField() : v).then(ok, fail);
+
+    // 장보기 app: things still to buy live in items.{id} = { id, store, name, note }; 'super' is the 슈퍼마켓 list.
+    let shopItems = {};
+    const nameKey = (s) => String(s || '').trim().toLowerCase();
+    cloud.idToken = () => auth.currentUser.getIdToken();
+    cloud.shoppingNames = () => new Set(Object.values(shopItems).filter((x) => x && x.store === 'super').map((x) => nameKey(x.name)));
+    cloud.addToShopping = (entries) => {
+      const have = cloud.shoppingNames(), args = [];
+      for (const e of entries) {
+        const k = nameKey(e.name);
+        if (!k || have.has(k)) continue;
+        have.add(k);
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        args.push(new F.FieldPath('items', id), { id, store: 'super', name: e.name.trim(), ...(e.note && { note: e.note }) });
+      }
+      if (args.length) F.updateDoc(house(), ...args).then(ok, fail);
+      return args.length / 2;
+    };
     cloud.signIn = () => A.signInWithPopup(auth, new A.GoogleAuthProvider());
     cloud.signOut = async () => { stop(); cloud.house = null; await A.signOut(auth); };
     cloud.create = async () => {
