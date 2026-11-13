@@ -1216,8 +1216,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       target.ing = { dish: '', src: true, kind: '', list: shopping.list.map((x) => ({ name: x.name, amount: x.amount })) };
       saveDay(shopping.key, day);
     }
-    const menu = shopping.item.text;
-    shopping.added = window.cloud.addToShopping(picks.map((p) => ({ name: p.name, note: [menu, p.amount].filter(Boolean).join(' · ') })));
+    // Only the amount goes along as the memo; the menu's name stays out of the 장보기 app.
+    shopping.added = window.cloud.addToShopping(picks.map((p) => ({ name: p.name, note: p.amount })));
     renderShop('done');
   });
 
@@ -1508,6 +1508,21 @@ if (cfg && M) {
     const ok = () => { if (cloud.error) { cloud.error = ''; M.refresh(); } };
 
     function stop() { if (unsub) unsub(); unsub = null; cloud.live = false; }
+    // Earlier versions wrote "메뉴 이름 · 양" into the 장보기 memo. Take the menu's name out again, keep the amount.
+    function dropMenuNames(meals) {
+      const menus = new Set(), args = [];
+      for (const day of Object.values(meals)) for (const list of Object.values(day || {})) {
+        if (Array.isArray(list)) for (const it of list) if (it && it.text) menus.add(it.text);
+      }
+      for (const [kind, all] of [['items', shopItems], ['stock', stockItems]]) for (const x of Object.values(all)) {
+        if (!x || !x.id || !x.note) continue;
+        const menu = [...menus].find((m) => x.note === m || x.note.startsWith(m + ' · '));
+        if (!menu) continue;
+        const rest = x.note.slice(menu.length + 3);
+        args.push(new F.FieldPath(kind, x.id, 'note'), rest || F.deleteField());
+      }
+      if (args.length) F.updateDoc(house(), ...args).then(ok, fail);
+    }
     function listen() {
       stop();
       let first = true;
@@ -1532,6 +1547,7 @@ if (cfg && M) {
         }
         M.setDays(remote);
         M.refresh();
+        dropMenuNames(remote);
       }, (e) => { stop(); fail(e); });
     }
     async function link(code) {
