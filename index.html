@@ -835,8 +835,13 @@ a.item-main .txt {
     if (!s || s.length > 40) return null;
     let name = s, amount = '';
     const idx = s.search(AMOUNT_AT);
-    if (idx === 0) return null;
-    if (idx > 0) { name = s.slice(0, idx); amount = s.slice(idx).trim(); }
+    if (idx === 0) {
+      // Amount first, as in many baking recipes: "125g 무염버터", "1/2 양파"
+      const m = s.match(/^([0-9½¼¾⅓⅔⅛.,/~+\-]+\s*[A-Za-z가-힣]{0,4})\s+(\D.*)$/u);
+      if (!m) return null;
+      amount = m[1].trim();
+      name = m[2];
+    } else if (idx > 0) { name = s.slice(0, idx); amount = s.slice(idx).trim(); }
     name = name.replace(/[\s:：\-–=]+$/, '').trim();
     if (!name || name.length > 20 || /^(물|생수|얼음|찬물|끓는\s*물)$/.test(name)) return null;
     return { name, amount: amount.slice(0, 30) };
@@ -851,9 +856,14 @@ a.item-main .txt {
   function parseIngredients(text) {
     // Notes in brackets ("200g (실온에 두기)") are dropped so they don't read as sentences or split on their commas.
     const lines = String(text || '').replace(/\r/g, '').split('\n')
-      .map((l) => l.replace(/\s*(\([^)]*\)|（[^）]*）)/g, '').trim());
+      .map((l) => {
+        let prev;
+        do { prev = l; l = l.replace(/\s*(\([^()]*\)|（[^（）]*）)/g, ''); } while (l !== prev); // nested ( ( ) )
+        return l.replace(/\s*[(（][^)）]*$/, '').trim(); // a bracket left open to the end of the line
+      });
     const out = [], seen = new Set();
     const push = (piece) => {
+      if (looksLikeSentence(piece)) return;
       const x = splitNameAmount(piece);
       if (!x) return;
       const k = x.name.toLowerCase();
