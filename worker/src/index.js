@@ -1,6 +1,8 @@
 // 주간식단 링크 읽기 서버 (Cloudflare Worker, 무료 요금제)
 // POST /read  { url }  with  Authorization: Bearer <Firebase ID token>
 // → { kind, title, text, read }
+// POST /book  { url }  (a public Notion page holding a recipe database)
+// → { title, books: [{ name, categoryName, categories, recipes: [{ title, url, category, time, level, link }] }] }
 //
 // Browsers can't read Notion, YouTube or Instagram pages from another site, so this small server
 // fetches the page and returns its recipe text. The app then finds the 재료 list itself.
@@ -25,7 +27,8 @@ export default {
       new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8" } });
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    if (request.method !== "POST" || new URL(request.url).pathname !== "/read") return json({ error: "not_found" }, 404);
+    const path = new URL(request.url).pathname;
+    if (request.method !== "POST" || (path !== "/read" && path !== "/book")) return json({ error: "not_found" }, 404);
 
     try {
       await verifyFirebaseToken((request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
@@ -37,6 +40,11 @@ export default {
     try { body = await request.json(); } catch { return json({ error: "bad_request" }, 400); }
     const url = String(body.url || "").trim().slice(0, 2000);
     if (!url) return json({ error: "bad_request" }, 400);
+
+    if (path === "/book") {
+      try { return json(await readNotionBook(url)); }
+      catch (e) { console.warn("book failed", url, String(e)); return json({ error: "read_failed" }, 502); }
+    }
 
     let source;
     try { source = await readLink(url); }
@@ -188,6 +196,89 @@ async function readNotion(u) {
   } catch (e) { console.warn("notion", String(e)); }
   const fallback = await readWebPage(u);
   return { ...fallback, kind: "notion" };
+}
+
+// Notion recipe book: a public page with one or more databases (or a database page itself).
+// Lists every recipe with its category (the database's 분류 select), time, difficulty and link.
+async function readNotionBook(raw) {
+  const u = new URL(raw);
+  if (linkKind(raw) !== "notion") throw new Error("not a notion link");
+  const hex = (u.pathname.replace(/-/g, "").match(/[0-9a-f]{32}/i) || [])[0];
+  if (!hex) throw new Error("no page id");
+  const dashed = (h) => `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`.toLowerCase();
+  const pageId = dashed(hex);
+  const base = u.hostname.endsWith("notion.site") ? u.origin : "https://www.notion.so";
+  const call = async (name, body) => (await get(`${base}/api/v3/${name}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  })).json();
+  const unwrap = (rec) => (rec && rec.value && rec.value.value ? rec.value.value : rec && rec.value);
+  const plain = (prop) => (Array.isArray(prop) ? prop.map((seg) => (Array.isArray(seg) ? seg[0] : "")).join("") : "");
+  const linkIn = (prop) => (Array.isArray(prop) ? prop.flatMap((seg) => (Array.isArray(seg) && Array.isArray(seg[1]) ? seg[1] : []))
+    .filter((f) => f[0] === "a" && /^https?:/.test(f[1])).map((f) => f[1])[0] || "" : "");
+
+  const chunk = await call("loadCachedPageChunk", { page: { id: pageId }, limit: 100, cursor: { stack: [] }, chunkNumber: 0, verticalColumns: false });
+  const rm = chunk.recordMap || {};
+  const page = unwrap((rm.block || {})[pageId]);
+  if (!page) throw new Error("page not public");
+  const blocks = [page, ...(page.content || []).map((id) => unwrap((rm.block || {})[id]))].filter(Boolean);
+
+  // Databases on the page, once each (a second view of the same database is skipped).
+  const found = new Map();
+  for (const b of blocks) {
+    if (b.type !== "collection_view" && b.type !== "collection_view_page") continue;
+    const viewId = (b.view_ids || [])[0];
+    let cid = b.collection_id || (b.format && b.format.collection_pointer && b.format.collection_pointer.id);
+    if (!cid && viewId) {
+      const v = unwrap((rm.collection_view || {})[viewId]);
+      cid = v && v.format && v.format.collection_pointer && v.format.collection_pointer.id;
+    }
+    if (cid && viewId && !found.has(cid)) found.set(cid, { viewId, spaceId: b.space_id });
+  }
+
+  const books = [];
+  for (const [cid, { viewId, spaceId }] of found) {
+    const sync = await call("syncRecordValues", { requests: [{ pointer: { table: "collection", id: cid, spaceId }, version: -1 }] });
+    const coll = unwrap(((sync.recordMap || {}).collection || {})[cid]);
+    if (!coll) continue;
+    const schema = coll.schema || {};
+    const keyWhere = (test) => Object.keys(schema).find((k) => test(schema[k]));
+    const catKey = keyWhere((p) => p.type === "select" && /분류|카테고리|종류|category/i.test(p.name))
+      || keyWhere((p) => p.type === "select" || p.type === "multi_select");
+    const timeKey = keyWhere((p) => /시간|time|min|분/i.test(p.name) && ["number", "text"].includes(p.type));
+    const levelKey = keyWhere((p) => /난이도|difficulty|level/i.test(p.name));
+    const linkKey = keyWhere((p) => p.type === "file" || p.type === "url");
+
+    const q = await call("queryCollection", {
+      source: { type: "collection", id: cid, spaceId },
+      collectionView: { id: viewId, spaceId },
+      loader: { type: "reducer", reducers: { collection_group_results: { type: "results", limit: 1000 } }, searchQuery: "", userTimeZone: "Europe/Berlin" },
+    });
+    const ids = (((q.result || {}).reducerResults || {}).collection_group_results || {}).blockIds || [];
+    const qblocks = (q.recordMap || {}).block || {};
+    const recipes = [];
+    for (const id of ids) {
+      const b = unwrap(qblocks[id]);
+      const p = (b && b.properties) || {};
+      const title = plain(p.title).trim();
+      if (!title) continue;
+      const val = (k) => (k && p[k] ? plain(p[k]).trim() : "");
+      recipes.push({
+        title,
+        url: `https://www.notion.so/${id.replace(/-/g, "")}`,
+        category: val(catKey).split(",")[0],
+        time: val(timeKey),
+        level: val(levelKey).split(",")[0],
+        link: linkKey && p[linkKey] ? linkIn(p[linkKey]) || (/^https?:/.test(val(linkKey)) ? val(linkKey) : "") : "",
+      });
+    }
+    books.push({
+      name: plain(coll.name),
+      categoryName: catKey ? schema[catKey].name : "",
+      categories: catKey ? (schema[catKey].options || []).map((o) => o.value) : [],
+      recipes,
+    });
+  }
+  return { title: plain(page.properties && page.properties.title), books };
 }
 
 // Any other page: a schema.org Recipe if the site has one, otherwise the page text.

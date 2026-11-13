@@ -97,8 +97,9 @@ button { cursor: pointer; }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
 /* Phones: title and account on the first row, the 7-day navigation across the full second row. */
 @media (max-width: 640px) {
-  .top-inner { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "brand acct" "nav nav"; gap: 8px 10px; }
+  .top-inner { display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "brand book acct" "nav nav nav"; gap: 8px 8px; }
   .brand { grid-area: brand; }
+  .book-btn { grid-area: book; }
   .acct-btn { grid-area: acct; }
   .weeknav { grid-area: nav; }
   .weeknav .range { flex: 1; min-width: 0; }
@@ -255,6 +256,38 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .rec-line b.soon { color: var(--danger); }
 .rec .btn { flex: none; height: 36px; padding: 0 12px; font-size: 13.5px; }
 @media (max-width: 900px) { .tools-bar { justify-content: stretch; } .useup-btn { width: 100%; justify-content: center; } }
+
+/* ---------- 레시피북 ---------- */
+.book-btn { flex: none; }
+/* Title, search, categories and 닫기 stay put; only the recipe list scrolls. */
+.book-sheet { width: min(600px, 100%); overflow: hidden; }
+.book-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
+.book-list { overflow-y: auto; min-height: 0; flex: 1; overscroll-behavior: contain; padding-bottom: 4px; }
+.book-search {
+  width: 100%; height: 42px; padding: 0 12px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--bg); color: var(--ink); font-size: 16px;
+}
+.book-search:focus { outline: none; border-color: var(--yolk-strong); }
+.book-cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; flex: none; }
+.book-body > .book-search, .book-body > .shop-msg { flex: none; }
+.book-cats::-webkit-scrollbar { display: none; }
+.book-cats .chip { flex: none; }
+.book-cats .chip.on { background: var(--yolk); border-color: var(--yolk); color: var(--on-yolk); }
+.book-cats .chip small { color: inherit; opacity: .7; }
+.book-list { display: flex; flex-direction: column; gap: 14px; }
+.book-sec h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 400; font-size: 18px; display: flex; align-items: baseline; gap: 6px; }
+.book-sec h3 small { font-family: var(--font-body); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.book-sec ul { list-style: none; margin: 0; padding: 0; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; }
+.book-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; border-top: 1px solid var(--line); }
+.book-row:first-child { border-top: 0; }
+.book-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; color: var(--ink); text-decoration: none; }
+.book-name { font-weight: 600; font-size: 15.5px; overflow-wrap: anywhere; }
+.book-main:hover .book-name { text-decoration: underline; text-decoration-color: var(--yolk-strong); text-underline-offset: 3px; }
+.book-meta { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.book-meta .ico { margin-top: 0; width: 14px; height: 14px; }
+.book-row .btn { flex: none; height: 34px; padding: 0 12px; font-size: 13px; }
+.book-link-row { display: flex; gap: 8px; }
+.book-link-row input { flex: 1; min-width: 0; }
 
 /* ---------- 장보기 sheet ---------- */
 .shop-body { display: flex; flex-direction: column; gap: 12px; max-height: min(58vh, 520px); overflow-y: auto; }
@@ -442,6 +475,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       </button>
       <button class="today-btn" id="today" type="button">오늘</button>
     </nav>
+    <button class="navbtn book-btn" id="book-open" type="button" aria-label="레시피북" title="레시피북">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M10 5.2C8.4 3.9 6 3.6 3 4v11.3c3-.4 5.4-.1 7 1.2 1.6-1.3 4-1.6 7-1.2V4c-3-.4-5.4-.1-7 1.2z"/><path d="M10 5.2v11.3"/></svg>
+    </button>
     <button class="navbtn acct-btn" id="acct-open" type="button" aria-label="함께 보기 설정">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10" cy="7" r="3.2"/><path d="M3.8 17c.9-3.2 3.3-4.8 6.2-4.8s5.3 1.6 6.2 4.8"/></svg>
         <span class="acct-dot" id="acct-dot" hidden></span>
@@ -461,6 +497,21 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     <button class="status" id="status" type="button" data-state="local">이 기기에만 저장돼요</button>
   </div>
 </main>
+
+<div class="backdrop" id="book" hidden>
+  <div class="sheet book-sheet" role="dialog" aria-modal="true" aria-labelledby="book-title">
+    <div class="sheet-head">
+      <h2 id="book-title">레시피북</h2>
+      <p id="book-sub"></p>
+    </div>
+    <div class="book-body" id="book-body"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" id="book-change" hidden>링크 바꾸기</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="book-close">닫기</button>
+    </div>
+  </div>
+</div>
 
 <div class="backdrop" id="useup" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="useup-title">
@@ -680,7 +731,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     syncedHouse: () => local.get('house', null),
     setSyncedHouse: (code) => local.put('house', code),
     setDays(next) { days = next; local.save(days); render(); },
-    refresh: () => renderAccount(),
+    refresh: () => { renderAccount(); bookStateChanged(); },
   };
 
   /* ---------- render ---------- */
@@ -1077,7 +1128,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!sheet.hidden) closeEditor(); else if (!shop.hidden) closeShop();
-    else if (!useup.hidden) closeUseUp(); else if (!acct.hidden) closeAcct();
+    else if (!useup.hidden) closeUseUp(); else if (!bookEl.hidden) closeBook(); else if (!acct.hidden) closeAcct();
   });
 
   /* ---------- 장보기: 재료 from the menu's link into the 장보기 app (no AI, no cost) ---------- */
@@ -1515,6 +1566,190 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     renderShop('done');
   });
 
+  /* ---------- 레시피북: a public Notion recipe database, grouped by its 분류 ---------- */
+  // The book's link is kept in the household (shared with the family) or, signed out, on this device;
+  // the last list read is kept here too, so the book opens at once and refreshes behind.
+  const BOOK_URL = READER_URL.replace(/\/read$/, '/book');
+  const bookEl = document.getElementById('book');
+  const bookBody = document.getElementById('book-body');
+  const bookChange = document.getElementById('book-change');
+  let bookOpen = false, bookLoading = false, bookError = '', bookEditing = false, bookQuery = '', bookCat = 'all';
+  let bookData = local.get('book-data', null); // { url, at, data }
+  const bookUrl = () => (window.cloud && window.cloud.recipeBook) || local.get('book-url', '');
+  const isKidCategory = (c) => /아이|어린이|키즈|kid/i.test(c || '');
+
+  function openBook() {
+    bookOpen = true;
+    bookEl.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    renderBook();
+    refreshBook();
+  }
+  function closeBook() {
+    bookOpen = false; bookEditing = false;
+    bookEl.hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+  document.getElementById('book-open').addEventListener('click', openBook);
+  document.getElementById('book-close').addEventListener('click', closeBook);
+  bookEl.addEventListener('click', (e) => { if (e.target === bookEl) closeBook(); });
+  bookChange.addEventListener('click', () => { bookEditing = true; renderBook(); });
+
+  async function refreshBook(force) {
+    const url = bookUrl();
+    if (!url || !canReadLinks() || bookLoading) return;
+    if (!force && bookData && bookData.url === url && Date.now() - bookData.at < 60 * 1000) return;
+    bookLoading = true; bookError = '';
+    renderBook();
+    try {
+      const token = await window.cloud.idToken();
+      const r = await fetch(BOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ url }),
+      });
+      const data = await r.json().catch(() => null);
+      if (r.ok && data && data.books && data.books.length) {
+        bookData = { url, at: Date.now(), data };
+        local.put('book-data', bookData);
+      } else {
+        bookError = r.status === 401 ? '로그인이 만료됐어요. 로그아웃했다가 다시 로그인해 주세요.'
+          : r.ok ? '이 페이지에서 레시피 데이터베이스를 찾지 못했어요. 레시피 목록이 있는 페이지 링크인지 확인해 주세요.'
+          : '레시피북을 읽지 못했어요. 노션에서 페이지가 웹에 공개되어 있는지 확인해 주세요.';
+      }
+    } catch (err) {
+      console.warn(err);
+      bookError = '인터넷 연결을 확인하고 다시 열어 주세요.';
+    }
+    bookLoading = false;
+    if (bookOpen) renderBook();
+  }
+
+  function saveBookUrl(raw) {
+    const url = normUrl(raw);
+    if (!url || !/notion\.(so|site|com)/i.test(new URL(url).hostname)) return false;
+    local.put('book-url', url);
+    if (window.cloud && window.cloud.live && window.cloud.setRecipeBook) window.cloud.setRecipeBook(url);
+    bookData = null; bookEditing = false; bookCat = 'all'; bookQuery = '';
+    return true;
+  }
+
+  function renderBook() {
+    if (!bookOpen) return;
+    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
+    const sub = document.getElementById('book-sub');
+    bookBody.replaceChildren();
+    const url = bookUrl();
+    bookChange.hidden = !url || bookEditing;
+
+    if (!url || bookEditing) {
+      sub.textContent = '노션의 레시피 목록을 분류대로 보여드려요.';
+      const input = el('input', { class: 'book-search', id: 'book-link', inputmode: 'url', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
+        placeholder: '노션 레시피북 링크를 붙여넣으세요', 'aria-label': '노션 레시피북 링크' });
+      input.value = url;
+      const save = el('button', { class: 'btn primary', type: 'button' }, '연결');
+      const err = msg('', 'err'); err.hidden = true;
+      save.addEventListener('click', () => {
+        if (saveBookUrl(input.value)) { renderBook(); refreshBook(true); }
+        else { err.hidden = false; err.textContent = '노션 페이지 링크를 붙여넣어 주세요.'; input.focus(); }
+      });
+      bookBody.append(msg('레시피 목록이 있는 노션 페이지의 링크를 붙여넣어 주세요. 노션에서 그 페이지가 "웹에 공개"되어 있어야 해요. 가족 코드로 연결된 가족도 같은 레시피북을 봐요.'),
+        el('div', { class: 'book-link-row' }, input, save), err);
+      return;
+    }
+
+    const data = bookData && bookData.url === url ? bookData.data : null;
+    if (!data) {
+      if (!canReadLinks()) {
+        const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
+        go.addEventListener('click', () => { closeBook(); openAcct(); });
+        bookBody.append(msg('레시피북을 읽으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+      } else if (bookError) {
+        const again = el('button', { class: 'btn line', type: 'button' }, '다시 읽기');
+        again.addEventListener('click', () => refreshBook(true));
+        bookBody.append(msg(bookError, 'err'), el('div', { class: 'acct-row' }, again));
+      } else {
+        bookBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), '레시피북을 읽고 있어요…'));
+      }
+      sub.textContent = '';
+      return;
+    }
+
+    // All recipes, in the book's category order (categories not in the list go last).
+    const recipes = data.books.flatMap((b) => b.recipes);
+    const order = [...new Set([...data.books.flatMap((b) => b.categories), ...recipes.map((r) => r.category || '분류 없음')])]
+      .filter((c) => recipes.some((r) => (r.category || '분류 없음') === c));
+    sub.textContent = `${data.title || '레시피북'} · 레시피 ${recipes.length}개${bookLoading ? ' · 새로 읽는 중…' : ''}`;
+    if (bookError) bookBody.append(msg(bookError + ' (전에 읽은 목록을 보여드려요)', 'warn'));
+
+    const search = el('input', { type: 'search', class: 'book-search', id: 'book-q', placeholder: '레시피 검색', 'aria-label': '레시피 검색', autocomplete: 'off', enterkeyhint: 'search' });
+    search.value = bookQuery;
+    search.addEventListener('input', () => { bookQuery = search.value; filterBook(); });
+    const cats = el('div', { class: 'book-cats', role: 'group', 'aria-label': '분류' });
+    for (const c of ['all', ...order]) {
+      const n = c === 'all' ? recipes.length : recipes.filter((r) => (r.category || '분류 없음') === c).length;
+      const chip = el('button', { type: 'button', class: 'chip' + (bookCat === c ? ' on' : ''), 'data-cat': c }, c === 'all' ? '전체' : c, el('small', null, String(n)));
+      chip.addEventListener('click', () => {
+        bookCat = c;
+        cats.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x.dataset.cat === c));
+        filterBook();
+      });
+      cats.append(chip);
+    }
+    bookBody.append(search, cats);
+
+    const list = el('div', { class: 'book-list' });
+    for (const c of order) {
+      const ul = el('ul');
+      for (const r of recipes.filter((x) => (x.category || '분류 없음') === c)) {
+        const meta = el('span', { class: 'book-meta' });
+        if (r.time) meta.append(`${r.time}분`);
+        if (r.level) meta.append(el('span', null, r.level));
+        if (r.link) meta.insertAdjacentHTML('beforeend', ICONS[platform(r.link)]);
+        const main = el('a', { class: 'book-main', href: r.url, target: '_blank', rel: 'noopener noreferrer', title: '노션에서 열기' },
+          el('span', { class: 'book-name' }, r.title), meta);
+        const add = el('button', { class: 'btn line', type: 'button' }, '식단에 넣기');
+        add.addEventListener('click', () => {
+          closeBook();
+          openEditor(dateKey(new Date()), 'dinner', null, document.getElementById('book-open'),
+            { text: r.title, url: r.url, kid: isKidCategory(r.category) });
+        });
+        ul.append(el('li', { class: 'book-row', 'data-find': normName(r.title) }, main, add));
+      }
+      list.append(el('section', { class: 'book-sec', 'data-cat': c }, el('h3', null, c, el('small', null, String(ul.children.length))), ul));
+    }
+    list.append(el('p', { class: 'shop-msg', id: 'book-none', hidden: true }, '찾는 레시피가 없어요.'));
+    bookBody.append(list);
+    filterBook();
+  }
+  // Sign-in finishing or the family's book link arriving while the book is open: draw it again.
+  let lastBookState = '';
+  function bookStateChanged() {
+    const state = `${bookUrl()}|${canReadLinks()}`;
+    if (state === lastBookState) return;
+    lastBookState = state;
+    if (bookOpen && !bookEditing) { renderBook(); refreshBook(); }
+  }
+  // Search and category filter in place, so typing Korean isn't interrupted by a redraw.
+  function filterBook() {
+    const q = normName(bookQuery);
+    let shown = 0;
+    for (const sec of bookBody.querySelectorAll('.book-sec')) {
+      let n = 0;
+      const catOk = bookCat === 'all' || sec.dataset.cat === bookCat;
+      for (const li of sec.querySelectorAll('.book-row')) {
+        const hit = catOk && (!q || li.dataset.find.includes(q));
+        li.hidden = !hit;
+        if (hit) n++;
+      }
+      sec.hidden = !n;
+      sec.querySelector('h3 small').textContent = n;
+      shown += n;
+    }
+    const none = bookBody.querySelector('#book-none');
+    if (none) none.hidden = shown > 0;
+  }
+
   /* ---------- 남은 재료로 뭐 먹지? ---------- */
   // Ranks every remembered menu by how many of the 장보기 app's bought-and-not-used-up items it uses,
   // counting items close to their 유통기한 more. Staples (salt, soy sauce, oil…) barely count.
@@ -1824,6 +2059,7 @@ if (cfg && M) {
         if (!snap.exists()) return;
         shopItems = snap.data().items || {};
         stockItems = snap.data().stock || {};
+        cloud.recipeBook = snap.data().recipeBook || ''; // 레시피북 link, shared with the family
         const remote = JSON.parse(JSON.stringify(snap.data().meals || {}));
         if (first) {
           first = false;
@@ -1858,6 +2094,7 @@ if (cfg && M) {
     cloud.stockItems = () => Object.values(stockItems).filter((x) => x && x.name);
     const nameKey = (s) => String(s || '').trim().toLowerCase();
     cloud.idToken = () => auth.currentUser.getIdToken();
+    cloud.setRecipeBook = (url) => F.updateDoc(house(), { recipeBook: url }).then(ok, fail);
     cloud.shoppingNames = () => new Set(Object.values(shopItems).filter((x) => x && x.store === 'super').map((x) => nameKey(x.name)));
     cloud.addToShopping = (entries) => {
       const have = cloud.shoppingNames(), args = [];
