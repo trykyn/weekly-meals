@@ -65,11 +65,30 @@ const cases = [
   },
 ];
 
+// Photo reading: what Tesseract typically gets wrong, and what fixOcrText makes of it
+// (first seen on a dark-mode Instagram caption screenshot).
+const fStart = html.indexOf('  function fixOcrText');
+const fEnd = html.indexOf('  async function readPhoto');
+if (fStart < 0 || fEnd < 0) throw new Error('fixOcrText not found in index.html');
+const fixOcrText = new Function(`${html.slice(fStart, fEnd)}\nreturn fixOcrText;`)();
+const ocrCases = [
+  { name: 'T read as 7 or ㅠ; arrow read as letters before 소스', text: 'ㄷㄷ 소스: 마요네즈 37, 다진 마늘 17, 진간장 1ㅠ', want: '소스: 마요네즈 3T, 다진 마늘 1T, 진간장 1T' },
+  { name: 'g read as 6 or 9; ml read as m!; "=" before 재료', text: '= 재료: 닭다리살 5006, 밥 2006, 시오콘부 56, 스팸 1009, 물 30m!', want: '재료: 닭다리살 500g, 밥 200g, 시오콘부 5g, 스팸 100g, 물 30ml' },
+  { name: 'spaced-out syllables', text: '< 만 들 기 >\n김 치 찌 개', want: '< 만들기 >\n김치찌개' },
+  { name: 'numbers with units and times stay as they are', text: '21:09\n두부 1/2모, 계란 2개, 감자 100g, 80% 정도', want: '21:09\n두부 1/2모, 계란 2개, 감자 100g, 80% 정도' },
+];
+
 let failed = 0;
 for (const c of cases) {
   const got = show(parseIngredients(c.text));
   if (got === c.want) console.log(`ok    ${c.name}`);
   else { failed++; console.log(`FAIL  ${c.name}\n      want: ${c.want}\n      got:  ${got}`); }
 }
-console.log(failed ? `\n${failed} of ${cases.length} failed` : `\nall ${cases.length} passed`);
+for (const c of ocrCases) {
+  const got = fixOcrText(c.text);
+  if (got === c.want) console.log(`ok    photo: ${c.name}`);
+  else { failed++; console.log(`FAIL  photo: ${c.name}\n      want: ${c.want}\n      got:  ${got}`); }
+}
+const total = cases.length + ocrCases.length;
+console.log(failed ? `\n${failed} of ${total} failed` : `\nall ${total} passed`);
 process.exit(failed ? 1 : 0);
