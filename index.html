@@ -200,6 +200,32 @@ a.item-main .txt {
 }
 .slot:has(.add:focus-visible) { outline: 3px solid var(--yolk-strong); outline-offset: 2px; }
 
+/* ---------- menu memory chips, 남은 재료 ---------- */
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; border: 1.5px solid var(--line); background: var(--surface);
+  color: var(--ink); border-radius: 999px; padding: 5px 11px; font-size: 14px; font-weight: 500;
+}
+button.chip { cursor: pointer; }
+button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-soft); }
+.chip .ico { margin-top: 0; width: 14px; height: 14px; }
+.chip small { color: var(--muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.chip.soon { border-color: var(--danger); }
+.chip.soon small { color: var(--danger); font-weight: 600; }
+.tools-bar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.useup-btn { display: inline-flex; align-items: center; gap: 7px; background: var(--surface); }
+.useup-btn svg { width: 16px; height: 16px; color: var(--yolk-strong); }
+.stock-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.recs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rec { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; }
+.rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rec-name { font-weight: 600; font-size: 16px; display: flex; gap: 6px; align-items: center; }
+.rec-line { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.rec-line b { color: var(--ink); font-weight: 600; }
+.rec-line b.soon { color: var(--danger); }
+.rec .btn { flex: none; height: 36px; padding: 0 12px; font-size: 13.5px; }
+@media (max-width: 900px) { .tools-bar { justify-content: stretch; } .useup-btn { width: 100%; justify-content: center; } }
+
 /* ---------- 장보기 sheet ---------- */
 .shop-body { display: flex; flex-direction: column; gap: 12px; max-height: min(58vh, 520px); overflow-y: auto; }
 .shop-msg { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.55; }
@@ -392,6 +418,12 @@ a.item-main .txt {
 </header>
 
 <main class="wrap">
+  <div class="tools-bar">
+    <button class="btn line useup-btn" id="useup-open" type="button">
+      <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="1.5" width="10" height="13" rx="2"/><path d="M3 6.5h10M5.5 3.8v1.2M5.5 8.7v2"/></svg>
+      남은 재료로 뭐 먹지?
+    </button>
+  </div>
   <div class="board" id="board"></div>
   <div class="foot">
     <span id="summary"></span>
@@ -401,6 +433,20 @@ a.item-main .txt {
     <button class="status" id="status" type="button" data-state="local">이 기기에만 저장돼요</button>
   </div>
 </main>
+
+<div class="backdrop" id="useup" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="useup-title">
+    <div class="sheet-head">
+      <h2 id="useup-title">남은 재료로 뭐 먹지?</h2>
+      <p>장보기 앱의 '구입한 것'에 남은 재료와 지금까지 넣었던 메뉴로 골랐어요.</p>
+    </div>
+    <div class="shop-body" id="useup-body"></div>
+    <div class="sheet-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" id="useup-close">닫기</button>
+    </div>
+  </div>
+</div>
 
 <div class="backdrop" id="shop" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shop-title">
@@ -450,6 +496,7 @@ a.item-main .txt {
       <span>메뉴</span>
       <input id="f-text" maxlength="80" autocomplete="off" placeholder="예: 토스트">
     </label>
+    <div class="suggest" id="f-suggest" hidden aria-label="전에 넣었던 메뉴"></div>
     <label class="field" for="f-url">
       <span>링크<em>선택 · 릴스나 유튜브 주소</em></span>
       <input id="f-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
@@ -685,7 +732,30 @@ a.item-main .txt {
     return list.find((x) => x.id === id) || null;
   }
 
-  function openEditor(key, meal, id, trigger) {
+  /* ---------- 메뉴 기억: every menu ever planned, by name ---------- */
+  // Built from the plan itself, so it syncs like the plan. A name typed again brings back the
+  // menu's last link and the 재료 found for it.
+  const normName = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+  function menuLibrary() {
+    const lib = new Map();
+    for (const key of Object.keys(days).sort()) {
+      for (const m of MEALS) {
+        for (const it of (days[key] && days[key][m.key]) || []) {
+          const k = normName(it.text);
+          if (!k) continue;
+          const e = lib.get(k) || { name: it.text, url: '', ing: null, count: 0, last: key, meal: m.key };
+          e.name = it.text; e.count++; e.last = key; e.meal = m.key;
+          if (it.url) e.url = it.url;
+          if (it.ing && it.ing.list && it.ing.list.length && (!it.url || it.url === e.url)) e.ing = it.ing;
+          lib.set(k, e);
+        }
+      }
+    }
+    return lib;
+  }
+  const remembered = (name) => menuLibrary().get(normName(name)) || null;
+
+  function openEditor(key, meal, id, trigger, prefill) {
     const item = id ? findItem(key, meal, id) : null;
     editing = { key, meal, id: item ? id : null };
     returnFocus = trigger || null;
@@ -695,10 +765,11 @@ a.item-main .txt {
     form.elements.meal.value = meal;
     buildDayPick(key);
     document.getElementById('day-pick-wrap').hidden = !!item;
-    fText.value = item ? item.text : '';
-    fUrl.value = item ? item.url : '';
+    fText.value = item ? item.text : (prefill && prefill.text) || '';
+    fUrl.value = item ? item.url : (prefill && prefill.url) || '';
     fDelete.hidden = !item;
     fDelete.classList.remove('armed'); fDelete.textContent = '삭제';
+    renderSuggest();
     updateHint();
     sheet.hidden = false;
     document.documentElement.style.overflow = 'hidden';
@@ -736,7 +807,15 @@ a.item-main .txt {
     fHint.classList.toggle('err', !!errText);
     if (errText) { fHint.textContent = errText; return; }
     const raw = fUrl.value.trim();
-    if (!raw) { fHint.textContent = ''; return; }
+    if (!raw) {
+      fHint.textContent = '';
+      const memo = editing && !editing.id && fText.value.trim() ? remembered(fText.value) : null;
+      if (memo && memo.url) {
+        fHint.innerHTML = ICONS[platform(memo.url)];
+        fHint.append(memo.ing ? '전에 넣은 링크와 찾아둔 재료를 같이 넣어요' : '전에 넣은 링크를 같이 넣어요');
+      } else if (memo && memo.ing) fHint.textContent = '전에 찾아둔 재료를 같이 기억해요';
+      return;
+    }
     const url = normUrl(raw);
     if (url === null) { fHint.textContent = 'https:// 로 시작하는 주소인지 확인해 주세요'; fHint.classList.add('err'); return; }
     const p = platform(url);
@@ -750,8 +829,36 @@ a.item-main .txt {
     if (m && !fUrl.value.trim()) {
       fUrl.value = m[0];
       fText.value = fText.value.replace(m[0], '').replace(/\s{2,}/g, ' ').trim();
-      updateHint();
     }
+    renderSuggest();
+    updateHint();
+  });
+
+  // Past menus matching what is typed, most-used first; tapping one fills in its name (and link).
+  const fSuggest = document.getElementById('f-suggest');
+  function renderSuggest() {
+    fSuggest.replaceChildren();
+    const q = normName(fText.value);
+    if (!editing || editing.id || !q) { fSuggest.hidden = true; return; }
+    const hits = [...menuLibrary().values()]
+      .filter((e) => normName(e.name).includes(q) && normName(e.name) !== q)
+      .sort((a, b) => b.count - a.count || (a.last < b.last ? 1 : -1))
+      .slice(0, 6);
+    fSuggest.hidden = !hits.length;
+    for (const e of hits) {
+      const chip = el('button', { type: 'button', class: 'chip', 'data-name': e.name });
+      if (e.url) chip.insertAdjacentHTML('beforeend', ICONS[platform(e.url)]);
+      chip.append(e.name);
+      fSuggest.append(chip);
+    }
+  }
+  fSuggest.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    fText.value = chip.dataset.name;
+    renderSuggest();
+    updateHint();
+    fText.focus();
   });
   fUrl.addEventListener('input', () => updateHint());
 
@@ -785,10 +892,16 @@ a.item-main .txt {
     }
     const keys = [...dayPick.querySelectorAll('input:checked')].map((x) => x.value);
     if (!keys.length) { updateHint('날짜를 하나 이상 골라 주세요'); return; }
+    // A menu planned before brings back its link (if none was given) and the 재료 found for that link.
+    const memo = remembered(text);
+    const useUrl = url || (memo && memo.url) || '';
+    const ing = memo && memo.ing && (!memo.url || memo.url === useUrl) ? memo.ing : null;
     closeEditor();
     for (const k of keys) {
       const day = prepared(k);
-      day[meal].push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), text, url });
+      const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), text, url: useUrl };
+      if (ing) entry.ing = clone(ing);
+      day[meal].push(entry);
       saveDay(k, day);
     }
   });
@@ -809,7 +922,8 @@ a.item-main .txt {
   sheet.addEventListener('click', (e) => { if (e.target === sheet) closeEditor(); });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!sheet.hidden) closeEditor(); else if (!shop.hidden) closeShop(); else if (!acct.hidden) closeAcct();
+    if (!sheet.hidden) closeEditor(); else if (!shop.hidden) closeShop();
+    else if (!useup.hidden) closeUseUp(); else if (!acct.hidden) closeAcct();
   });
 
   /* ---------- 장보기: 재료 from the menu's link into the 장보기 app (no AI, no cost) ---------- */
@@ -940,13 +1054,17 @@ a.item-main .txt {
   function openShop(key, meal, id, trigger) {
     const item = findItem(key, meal, id);
     if (!item) return;
-    shopping = { key, meal, id, item, trigger, list: [] };
+    // Fall back to what is remembered for this menu name (its link, the 재료 found before).
+    const memo = remembered(item.text);
+    const url = item.url || (memo && memo.url) || '';
+    const ing = (item.ing && item.ing.list && item.ing.list.length && item.ing) || (memo && memo.ing && (!item.url || memo.url === item.url) && memo.ing);
+    shopping = { key, meal, id, item, url, trigger, list: [] };
     document.getElementById('shop-sub').textContent = item.text;
     shop.hidden = false;
     document.documentElement.style.overflow = 'hidden';
-    if (item.ing && item.ing.list && item.ing.list.length) setList(item.ing.list, 'saved');
-    else if (item.url && canReadLinks()) readFromLink();
-    else setList([], !item.url ? 'no-link' : !READER_URL ? 'no-reader' : 'login-read');
+    if (ing) setList(ing.list, 'saved');
+    else if (url && canReadLinks()) readFromLink();
+    else setList([], !url ? 'no-link' : !READER_URL ? 'no-reader' : 'login-read');
   }
   function closeShop() {
     shopSeq++;
@@ -968,7 +1086,7 @@ a.item-main .txt {
       const r = await fetch(READER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ url: shopping.item.url }),
+        body: JSON.stringify({ url: shopping.url }),
       });
       const data = await r.json().catch(() => ({}));
       if (seq !== shopSeq || !shopping) return;
@@ -1072,7 +1190,7 @@ a.item-main .txt {
       shopAdd.hidden = false;
       updateShopCount();
     }
-    if (shopping.item.url && canReadLinks()) shopRetry.hidden = false;
+    if (shopping.url && canReadLinks()) shopRetry.hidden = false;
   }
 
   function updateShopCount() {
@@ -1102,6 +1220,154 @@ a.item-main .txt {
     shopping.added = window.cloud.addToShopping(picks.map((p) => ({ name: p.name, note: [menu, p.amount].filter(Boolean).join(' · ') })));
     renderShop('done');
   });
+
+  /* ---------- 남은 재료로 뭐 먹지? ---------- */
+  // Ranks every remembered menu by how many of the 장보기 app's bought-and-not-used-up items it uses,
+  // counting items close to their 유통기한 more. Staples (salt, soy sauce, oil…) barely count.
+  const STAPLES = new Set(['소금', '설탕', '흑설탕', '백설탕', '간장', '국간장', '진간장', '양조간장', '식용유', '올리브유',
+    '포도씨유', '참기름', '들기름', '후추', '후춧가루', '깨', '통깨', '참깨', '물엿', '올리고당', '식초', '맛술', '미림',
+    'msg', '다시다', '굴소스', '케첩', '마요네즈', '물', '고춧가루', '고추가루', '다진마늘', '깨소금'].map(normName));
+  const isStaple = (n) => STAPLES.has(normName(n));
+  const sameThing = (a, b) => {
+    a = normName(a); b = normName(b);
+    return a === b || (b.length >= 2 && a.includes(b)) || (a.length >= 2 && b.includes(a));
+  };
+  const urgency = (left) => (left === null ? 1 : left <= 2 ? 3 : left <= 5 ? 2 : 1);
+
+  function recommend(stock, lib) {
+    const out = [];
+    for (const e of lib.values()) {
+      const byName = !(e.ing && e.ing.list && e.ing.list.length);
+      const names = byName ? [] : e.ing.list.map((x) => x.name);
+      const used = stock.filter((s) => (byName
+        ? normName(s.name).length >= 2 && normName(e.name).includes(normName(s.name))
+        : names.some((n) => sameThing(n, s.name))));
+      if (!used.some((s) => !isStaple(s.name))) continue;
+      const score = used.reduce((t, s) => t + (isStaple(s.name) ? 0.2 : urgency(s.left)), 0);
+      const missing = names.filter((n) => !isStaple(n) && !stock.some((s) => sameThing(n, s.name)));
+      out.push({ e, used, score, missing, byName });
+    }
+    return out
+      .sort((a, b) => b.score - a.score || a.missing.length - b.missing.length || b.e.count - a.e.count)
+      .slice(0, 8);
+  }
+
+  const useup = document.getElementById('useup');
+  const useupBody = document.getElementById('useup-body');
+  let useupOpen = false, reading = 0;
+  const triedLinks = new Set(); // links already read this visit without finding 재료
+
+  function openUseUp() {
+    useupOpen = true;
+    useup.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    renderUseUp();
+    readMissingIngredients();
+  }
+  function closeUseUp() {
+    useupOpen = false;
+    useup.hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+  document.getElementById('useup-open').addEventListener('click', openUseUp);
+  document.getElementById('useup-close').addEventListener('click', closeUseUp);
+  useup.addEventListener('click', (e) => { if (e.target === useup) closeUseUp(); });
+
+  // Menus with a link whose 재료 were never looked up: read them now and remember the result.
+  async function readMissingIngredients() {
+    if (!canReadLinks()) return;
+    const todo = [...menuLibrary().values()].filter((e) => e.url && !e.ing && !triedLinks.has(e.url)).slice(0, 15);
+    if (!todo.length) return;
+    let token;
+    try { token = await window.cloud.idToken(); } catch { return; }
+    reading = todo.length;
+    renderUseUp();
+    const one = async (e) => {
+      triedLinks.add(e.url);
+      try {
+        const r = await fetch(READER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ url: e.url }),
+        });
+        const data = r.ok ? await r.json() : null;
+        const found = data ? parseIngredients(data.text) : [];
+        if (found.length) {
+          // Keep it on the menu's latest entry, where 메뉴 기억 and 🛒 will find it.
+          const day = clone(days[e.last]);
+          const target = MEALS.flatMap((m) => day[m.key] || []).reverse().find((x) => normName(x.text) === normName(e.name));
+          if (target) {
+            target.ing = { dish: '', src: true, kind: data.kind || '', list: found };
+            if (!target.url) target.url = e.url;
+            saveDay(e.last, day);
+          }
+        }
+      } catch (err) { console.warn('read', e.url, err); }
+      reading--;
+      if (useupOpen) renderUseUp();
+    };
+    const queue = [...todo];
+    await Promise.all([0, 1, 2].map(async () => { while (queue.length) await one(queue.shift()); }));
+  }
+
+  function renderUseUp() {
+    if (!useupOpen) return;
+    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
+    useupBody.replaceChildren();
+    if (!canAddToShopping()) {
+      const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
+      go.addEventListener('click', () => { closeUseUp(); openAcct(); });
+      useupBody.append(msg('장보기 앱의 남은 재료를 보려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+      return;
+    }
+    const today = new Date();
+    const stock = window.cloud.stockItems()
+      .map((s) => ({ name: String(s.name), left: s.expires ? daysBetween(today, fromKey(String(s.expires).slice(0, 10))) : null }))
+      .sort((a, b) => (a.left === null) - (b.left === null) || (a.left ?? 0) - (b.left ?? 0));
+    if (!stock.length) {
+      useupBody.append(msg("장보기 앱의 '구입한 것' 목록이 비어 있어요. 장 본 재료를 '샀어요'로 옮기면 여기서 메뉴를 추천해 드려요."));
+      return;
+    }
+
+    const leftText = (l) => (l === null ? '' : l < 0 ? '기한 지남' : l === 0 ? '오늘까지' : `${l}일`);
+    const chips = el('div', { class: 'stock-chips' });
+    for (const s of stock.slice(0, 14)) {
+      chips.append(el('span', { class: 'chip' + (s.left !== null && s.left <= 2 ? ' soon' : '') }, s.name, s.left !== null ? el('small', null, leftText(s.left)) : null));
+    }
+    if (stock.length > 14) chips.append(el('span', { class: 'chip' }, el('small', null, `외 ${stock.length - 14}개`)));
+    useupBody.append(el('p', { class: 'shop-msg' }, `남은 재료 ${stock.length}개`), chips);
+
+    if (reading > 0) {
+      useupBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), `메뉴 링크 ${reading}개에서 재료를 읽고 있어요…`));
+    }
+
+    const recs = recommend(stock, menuLibrary());
+    if (!recs.length) {
+      if (reading <= 0) useupBody.append(msg('남은 재료로 만들 만한 메뉴를 찾지 못했어요. 🛒 버튼으로 재료를 찾아둔 메뉴가 많을수록 잘 찾아요.'));
+      return;
+    }
+    const ul = el('ul', { class: 'recs' });
+    for (const r of recs) {
+      const usedLine = el('span', { class: 'rec-line' }, '남은 재료: ');
+      r.used.filter((s) => !isStaple(s.name)).forEach((s, i) => {
+        if (i) usedLine.append(', ');
+        usedLine.append(el('b', { class: s.left !== null && s.left <= 2 ? 'soon' : null }, s.name + (s.left !== null && s.left <= 5 ? ` (${leftText(s.left)})` : '')));
+      });
+      const second = r.byName
+        ? el('span', { class: 'rec-line' }, '메뉴 이름으로 찾았어요')
+        : el('span', { class: 'rec-line' }, r.missing.length ? `더 필요: ${r.missing.slice(0, 6).join(', ')}${r.missing.length > 6 ? ' 외' : ''}` : '재료가 다 있어요');
+      const name = el('span', { class: 'rec-name' });
+      if (r.e.url) name.insertAdjacentHTML('beforeend', ICONS[platform(r.e.url)]);
+      name.append(r.e.name);
+      const add = el('button', { class: 'btn primary', type: 'button' }, '식단에 넣기');
+      add.addEventListener('click', () => {
+        closeUseUp();
+        openEditor(dateKey(new Date()), r.e.meal || 'dinner', null, document.getElementById('useup-open'), { text: r.e.name, url: r.e.url });
+      });
+      ul.append(el('li', { class: 'rec' }, el('div', { class: 'rec-main' }, name, usedLine, second), add));
+    }
+    useupBody.append(ul);
+  }
 
   /* ---------- 함께 보기 (account) ---------- */
   const acct = document.getElementById('acct');
@@ -1248,6 +1514,7 @@ if (cfg && M) {
       unsub = F.onSnapshot(house(), (snap) => {
         if (!snap.exists()) return;
         shopItems = snap.data().items || {};
+        stockItems = snap.data().stock || {};
         const remote = JSON.parse(JSON.stringify(snap.data().meals || {}));
         if (first) {
           first = false;
@@ -1276,7 +1543,9 @@ if (cfg && M) {
     cloud.push = (k, v) => F.updateDoc(house(), field(k), v === null ? F.deleteField() : v).then(ok, fail);
 
     // 장보기 app: things still to buy live in items.{id} = { id, store, name, note }; 'super' is the 슈퍼마켓 list.
-    let shopItems = {};
+    let shopItems = {}, stockItems = {};
+    // 구입한 것: bought and not yet used up, { id, name, expires: 'YYYY-MM-DD' | null, loc, … }
+    cloud.stockItems = () => Object.values(stockItems).filter((x) => x && x.name);
     const nameKey = (s) => String(s || '').trim().toLowerCase();
     cloud.idToken = () => auth.currentUser.getIdToken();
     cloud.shoppingNames = () => new Set(Object.values(shopItems).filter((x) => x && x.store === 'super').map((x) => nameKey(x.name)));
