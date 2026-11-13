@@ -59,6 +59,11 @@ const cases = [
     want: '닭[1마리-1.5kg], 감자[2개], 양파[1/2개], 대파[1대], 다진 마늘[넉넉히 1큰술], 식용유, 간장[6큰술], 설탕[4큰술], 고추장[3큰술], 후추[취향에 따라 조절]',
   },
   {
+    name: 'stray marks from a photo ("Oo", "|") are not 재료, but short English names (MSG) are',
+    text: '재료: 밥 1공기, Oo, 계란 1개, |, MSG 약간',
+    want: '밥[1공기], 계란[1개], MSG[약간]',
+  },
+  {
     name: 'no 재료 list at all: nothing found',
     text: '오늘은 엄마표 김치찌개 레시피를 알려드릴게요. 맛있게 드세요!',
     want: '',

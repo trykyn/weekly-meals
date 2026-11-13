@@ -184,6 +184,12 @@ a.item-main .txt {
 }
 .item.kid-first { margin-top: 3px; padding-top: 3px; border-top: 1px dashed var(--line); }
 .who-pick { grid-template-columns: repeat(2, 1fr); }
+.photo-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: -6px; }
+.photo-row .photo-btn { height: 36px; padding: 0 12px; font-size: 13.5px; }
+.photo-note { margin: 0; line-height: 1.5; }
+.photo-note b { color: var(--ink); font-weight: 600; }
+.link-btn { border: 0; background: none; padding: 0 2px; color: var(--muted); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--ink); }
 .kid-block { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .field .kid-tag { margin-right: 2px; vertical-align: 1px; }
 .who-pick label { padding: 6px 0; font-size: 15px; }
@@ -515,6 +521,11 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <span>링크<em>선택 · 릴스나 유튜브 주소</em></span>
       <input id="f-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
     </label>
+    <div class="photo-row">
+      <button type="button" class="btn line photo-btn" id="f-photo-btn"></button>
+      <input type="file" accept="image/*" id="f-photo" hidden>
+      <p class="hint photo-note" id="f-photo-note" hidden></p>
+    </div>
     <p class="hint" id="f-hint"></p>
     <!-- 아이 메뉴: added together with the adults' menu (add only; editing one menu uses 어른/아이 above) -->
     <div class="kid-block" id="kid-block">
@@ -527,6 +538,11 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
         <span>아이 메뉴 링크<em>선택</em></span>
         <input id="f-kid-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
       </label>
+      <div class="photo-row" id="f-kid-photo-row" hidden>
+        <button type="button" class="btn line photo-btn" id="f-kid-photo-btn"></button>
+        <input type="file" accept="image/*" id="f-kid-photo" hidden>
+        <p class="hint photo-note" id="f-kid-photo-note" hidden></p>
+      </div>
       <p class="hint" id="f-kid-hint"></p>
     </div>
     <div class="sheet-actions">
@@ -782,6 +798,64 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   const fKidHint = document.getElementById('f-kid-hint');
   const fKidSuggest = document.getElementById('f-kid-suggest');
   const fSuggest = document.getElementById('f-suggest');
+  const fKidPhotoRow = document.getElementById('f-kid-photo-row');
+
+  // 사진에서 재료 읽기: a recipe photo is read on the phone (readPhoto below) and only the 재료 found
+  // are kept with the menu, as if 🛒 had found them. The photo itself is not saved.
+  const photoIng = { adult: null, kid: null };
+  const photoSeq = { adult: 0, kid: 0 };
+  const photoParts = {
+    adult: { btn: document.getElementById('f-photo-btn'), input: document.getElementById('f-photo'), note: document.getElementById('f-photo-note') },
+    kid: { btn: document.getElementById('f-kid-photo-btn'), input: document.getElementById('f-kid-photo'), note: document.getElementById('f-kid-photo-note') },
+  };
+  function showPhotoIng(which, message, isError) {
+    const { btn, note } = photoParts[which];
+    btn.replaceChildren();
+    btn.insertAdjacentHTML('beforeend', ICONS.camera);
+    btn.append(photoIng[which] ? '다른 사진으로 다시 읽기' : '사진에서 재료 읽기');
+    note.classList.toggle('err', !!isError);
+    if (message) { note.hidden = false; note.textContent = message; return; }
+    const ing = photoIng[which];
+    if (!ing) { note.hidden = true; note.textContent = ''; return; }
+    const drop = el('button', { type: 'button', class: 'link-btn' }, '빼기');
+    drop.addEventListener('click', () => { photoIng[which] = null; showPhotoIng(which); });
+    note.hidden = false;
+    note.replaceChildren(el('b', null, `재료 ${ing.list.length}개`), ': ', ing.list.map((x) => x.name).join(', '), ' ', drop);
+  }
+  function resetPhotoIng() {
+    for (const which of ['adult', 'kid']) { photoIng[which] = null; photoSeq[which]++; photoParts[which].btn.disabled = false; showPhotoIng(which); }
+  }
+  for (const which of ['adult', 'kid']) {
+    const { btn, input } = photoParts[which];
+    btn.addEventListener('click', () => input.click());
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      const seq = ++photoSeq[which];
+      btn.disabled = true;
+      showPhotoIng(which, '글자 읽기를 준비하고 있어요…');
+      try {
+        const text = await readPhoto(file, (m) => {
+          if (seq !== photoSeq[which]) return;
+          const pct = Math.round((m.progress || 0) * 100);
+          photoParts[which].note.textContent = m.status === 'recognizing text' ? `사진의 글자를 읽고 있어요… ${pct}%`
+            : /traineddata/.test(m.status || '') ? `처음 한 번만 한국어 글자 데이터를 내려받고 있어요… ${pct}%`
+            : '글자 읽기를 준비하고 있어요…';
+        });
+        if (seq !== photoSeq[which]) return;
+        const list = parseIngredients(text);
+        photoIng[which] = list.length ? { dish: '', src: true, kind: 'photo', list } : null;
+        if (list.length) showPhotoIng(which);
+        else showPhotoIng(which, text ? "사진에서 '재료' 목록을 찾지 못했어요. 재료 부분이 잘 보이게 찍거나 캡처해서 다시 해 주세요."
+          : '사진에서 글자를 읽지 못했어요. 글자가 크고 선명한 사진이나 캡처 화면으로 다시 해 주세요.', true);
+      } catch (err) {
+        console.warn(err);
+        if (seq === photoSeq[which]) showPhotoIng(which, '글자 읽기 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.', true);
+      }
+      if (seq === photoSeq[which]) btn.disabled = false;
+    });
+  }
 
   function openEditor(key, meal, id, trigger, prefill) {
     const item = id ? findItem(key, meal, id) : null;
@@ -804,6 +878,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     fKidUrl.value = forKid ? prefill.url || '' : '';
     fDelete.hidden = !item;
     fDelete.classList.remove('armed'); fDelete.textContent = '삭제';
+    resetPhotoIng();
     renderSuggest(fText, fSuggest, false);
     renderSuggest(fKid, fKidSuggest, true);
     updateHint();
@@ -862,7 +937,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   }
   const updateHint = (errText) => writeHint(fHint, fText, fUrl, errText);
   const updateKidHint = (errText) => {
-    fKidUrlField.hidden = !fKid.value.trim() && !fKidUrl.value.trim();
+    fKidUrlField.hidden = !fKid.value.trim() && !fKidUrl.value.trim() && !photoIng.kid;
+    fKidPhotoRow.hidden = fKidUrlField.hidden;
     writeHint(fKidHint, fKid, fKidUrl, errText);
   };
 
@@ -931,7 +1007,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       const updated = { id: editing.id, text, url };
       if (kid) updated.kid = true;
       const prev = findItem(editing.key, editing.meal, editing.id);
-      if (prev && prev.ing && prev.url === url) updated.ing = prev.ing;
+      if (photoIng.adult) updated.ing = photoIng.adult;
+      else if (prev && prev.ing && prev.url === url) updated.ing = prev.ing;
       if (idx >= 0 && meal === editing.meal) list[idx] = updated;
       else { if (idx >= 0) list.splice(idx, 1); day[meal].push(updated); }
       const key = editing.key;
@@ -942,9 +1019,11 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
     const kidUrl = fKidUrl.value.trim() ? normUrl(fKidUrl.value) : '';
     if (kidUrl === null) { updateKidHint('https:// 로 시작하는 주소인지 확인해 주세요'); fKidUrl.focus(); return; }
+    if (photoIng.adult && !fText.value.trim() && !url) { updateHint('사진에서 읽은 재료의 메뉴 이름을 적어 주세요'); fText.focus(); return; }
+    if (photoIng.kid && !fKid.value.trim() && !kidUrl) { updateKidHint('사진에서 읽은 재료의 메뉴 이름을 적어 주세요'); fKid.focus(); return; }
     const menus = [];
-    if (fText.value.trim() || url) menus.push({ text: fText.value.trim() || defaultLabel(url), url, kid: false });
-    if (fKid.value.trim() || kidUrl) menus.push({ text: fKid.value.trim() || defaultLabel(kidUrl), url: kidUrl, kid: true });
+    if (fText.value.trim() || url) menus.push({ text: fText.value.trim() || defaultLabel(url), url, kid: false, photoIng: photoIng.adult });
+    if (fKid.value.trim() || kidUrl) menus.push({ text: fKid.value.trim() || defaultLabel(kidUrl), url: kidUrl, kid: true, photoIng: photoIng.kid });
     if (!menus.length) { updateHint('어른 메뉴나 아이 메뉴를 적어 주세요'); fText.focus(); return; }
     const keys = [...dayPick.querySelectorAll('input:checked')].map((x) => x.value);
     if (!keys.length) { updateHint('날짜를 하나 이상 골라 주세요'); return; }
@@ -952,7 +1031,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const entries = menus.map((m) => {
       const memo = remembered(m.text);
       const useUrl = m.url || (memo && memo.url) || '';
-      const ing = memo && memo.ing && (!memo.url || memo.url === useUrl) ? memo.ing : null;
+      // 재료 read from a photo now win over ones remembered from before.
+      const ing = m.photoIng || (memo && memo.ing && (!memo.url || memo.url === useUrl) ? memo.ing : null);
       return { text: m.text, url: useUrl, kid: m.kid, ing };
     });
     closeEditor();
@@ -1031,6 +1111,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     name = name.replace(/[\s:：\-–=]+$/, '').trim();
     if (!amount && bracketed.length) amount = bracketed[0];
     if (!name || name.length > 20 || /^(물|생수|얼음|찬물|끓는\s*물)$/.test(name)) return null;
+    if (!/[가-힣]/.test(name) && name.replace(/[^A-Za-z]/g, '').length < 3) return null; // stray marks like "Oo", "|"
     return { name, amount: amount.slice(0, 30) };
   }
   function splitPieces(line) {
@@ -1253,7 +1334,20 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   async function readPhoto(file, onProgress) {
     ocrProgress = onProgress || (() => {});
     const worker = await getOcrWorker();
-    const { data } = await worker.recognize(await prepareImage(file));
+    const image = await prepareImage(file);
+    let { data } = await worker.recognize(image);
+    // A picture with only a line or two of text can come out as noise with automatic layout;
+    // read it again as one block of text and keep whichever has more Korean in it.
+    const hangul = (t) => (String(t).match(/[가-힣]/g) || []).length;
+    if (hangul(data.text) < 8) {
+      await worker.setParameters({ tessedit_pageseg_mode: '6' });
+      try {
+        const again = (await worker.recognize(image)).data;
+        if (hangul(again.text) > hangul(data.text)) data = again;
+      } finally {
+        await worker.setParameters({ tessedit_pageseg_mode: '3' });
+      }
+    }
     return fixOcrText(data.text || '');
   }
   window.readPhoto = readPhoto; // handy for checking an image in the console
