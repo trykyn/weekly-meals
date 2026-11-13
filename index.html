@@ -1685,10 +1685,20 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const search = el('input', { type: 'search', class: 'book-search', id: 'book-q', placeholder: '레시피 검색', 'aria-label': '레시피 검색', autocomplete: 'off', enterkeyhint: 'search' });
     search.value = bookQuery;
     search.addEventListener('input', () => { bookQuery = search.value; filterBook(); });
+    // 추천: the menus planned most often (book recipes and other menus alike), most frequent first.
+    const hexOf = (u) => ((String(u || '').replace(/-/g, '').match(/[0-9a-f]{32}/i) || [])[0] || '').toLowerCase();
+    const byHex = new Map(recipes.map((r) => [hexOf(r.url), r]));
+    const byName = new Map(recipes.map((r) => [normName(r.title), r]));
+    const favorites = [...menuLibrary().values()]
+      .map((e) => ({ e, r: (hexOf(e.url) && byHex.get(hexOf(e.url))) || byName.get(normName(e.name)) || null }))
+      .sort((a, b) => b.e.count - a.e.count || (a.e.last < b.e.last ? 1 : -1))
+      .slice(0, 20);
+
     const cats = el('div', { class: 'book-cats', role: 'group', 'aria-label': '분류' });
-    for (const c of ['all', ...order]) {
-      const n = c === 'all' ? recipes.length : recipes.filter((r) => (r.category || '분류 없음') === c).length;
-      const chip = el('button', { type: 'button', class: 'chip' + (bookCat === c ? ' on' : ''), 'data-cat': c }, c === 'all' ? '전체' : c, el('small', null, String(n)));
+    for (const c of ['all', 'rec', ...order]) {
+      const n = c === 'all' ? recipes.length : c === 'rec' ? favorites.length : recipes.filter((r) => (r.category || '분류 없음') === c).length;
+      const label = c === 'all' ? '전체' : c === 'rec' ? '추천' : c;
+      const chip = el('button', { type: 'button', class: 'chip' + (bookCat === c ? ' on' : ''), 'data-cat': c }, label, el('small', null, String(n)));
       chip.addEventListener('click', () => {
         bookCat = c;
         cats.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x.dataset.cat === c));
@@ -1698,25 +1708,46 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     }
     bookBody.append(search, cats);
 
+    // One row: the name (opens Notion or the menu's link), a meta line, and 식단에 넣기.
+    const row = ({ title, href, metaParts, link, prefill }) => {
+      const meta = el('span', { class: 'book-meta' });
+      for (const part of metaParts) if (part) meta.append(el('span', null, part));
+      if (link) meta.insertAdjacentHTML('beforeend', ICONS[platform(link)]);
+      const main = href
+        ? el('a', { class: 'book-main', href, target: '_blank', rel: 'noopener noreferrer', title: '열기' }, el('span', { class: 'book-name' }, title), meta)
+        : el('span', { class: 'book-main' }, el('span', { class: 'book-name' }, title), meta);
+      const add = el('button', { class: 'btn line', type: 'button' }, '식단에 넣기');
+      add.addEventListener('click', () => {
+        closeBook();
+        openEditor(dateKey(new Date()), 'dinner', null, document.getElementById('book-open'), prefill);
+      });
+      return el('li', { class: 'book-row', 'data-find': normName(title) }, main, add);
+    };
+    const section = (cat, heading, ul) => el('section', { class: 'book-sec', 'data-cat': cat },
+      el('h3', null, heading, el('small', null, String(ul.children.length))), ul);
+
     const list = el('div', { class: 'book-list' });
+    const favUl = el('ul');
+    for (const { e, r } of favorites) {
+      const last = fromKey(e.last);
+      favUl.append(row({
+        title: e.name,
+        href: (r && r.url) || e.url || '',
+        metaParts: [`${e.count}번`, `마지막 ${last.getMonth() + 1}/${last.getDate()}`, r && r.time ? `${r.time}분` : '', r && r.level, e.kid ? '아이' : ''],
+        link: r ? r.link : (e.url && !hexOf(e.url) ? e.url : ''),
+        prefill: { text: e.name, url: e.url || (r && r.url) || '', kid: e.kid || (r ? isKidCategory(r.category) : false) },
+      }));
+    }
+    list.append(section('rec', '자주 먹은 메뉴', favUl));
     for (const c of order) {
       const ul = el('ul');
       for (const r of recipes.filter((x) => (x.category || '분류 없음') === c)) {
-        const meta = el('span', { class: 'book-meta' });
-        if (r.time) meta.append(`${r.time}분`);
-        if (r.level) meta.append(el('span', null, r.level));
-        if (r.link) meta.insertAdjacentHTML('beforeend', ICONS[platform(r.link)]);
-        const main = el('a', { class: 'book-main', href: r.url, target: '_blank', rel: 'noopener noreferrer', title: '노션에서 열기' },
-          el('span', { class: 'book-name' }, r.title), meta);
-        const add = el('button', { class: 'btn line', type: 'button' }, '식단에 넣기');
-        add.addEventListener('click', () => {
-          closeBook();
-          openEditor(dateKey(new Date()), 'dinner', null, document.getElementById('book-open'),
-            { text: r.title, url: r.url, kid: isKidCategory(r.category) });
-        });
-        ul.append(el('li', { class: 'book-row', 'data-find': normName(r.title) }, main, add));
+        ul.append(row({
+          title: r.title, href: r.url, metaParts: [r.time ? `${r.time}분` : '', r.level], link: r.link,
+          prefill: { text: r.title, url: r.url, kid: isKidCategory(r.category) },
+        }));
       }
-      list.append(el('section', { class: 'book-sec', 'data-cat': c }, el('h3', null, c, el('small', null, String(ul.children.length))), ul));
+      list.append(section(c, c, ul));
     }
     list.append(el('p', { class: 'shop-msg', id: 'book-none', hidden: true }, '찾는 레시피가 없어요.'));
     bookBody.append(list);
@@ -1736,7 +1767,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     let shown = 0;
     for (const sec of bookBody.querySelectorAll('.book-sec')) {
       let n = 0;
-      const catOk = bookCat === 'all' || sec.dataset.cat === bookCat;
+      // 추천 shows only under its own chip (in 전체 it would repeat recipes)
+      const catOk = sec.dataset.cat === 'rec' ? bookCat === 'rec' : bookCat === 'all' || sec.dataset.cat === bookCat;
       for (const li of sec.querySelectorAll('.book-row')) {
         const hit = catOk && (!q || li.dataset.find.includes(q));
         li.hidden = !hit;
@@ -1747,7 +1779,12 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       shown += n;
     }
     const none = bookBody.querySelector('#book-none');
-    if (none) none.hidden = shown > 0;
+    if (none) {
+      none.hidden = shown > 0;
+      none.textContent = bookCat === 'rec' && !q
+        ? '아직 식단에 넣은 메뉴가 없어요. 식단에 넣을수록 자주 먹는 메뉴가 여기에 모여요.'
+        : '찾는 레시피가 없어요.';
+    }
   }
 
   /* ---------- 남은 재료로 뭐 먹지? ---------- */
