@@ -184,6 +184,8 @@ a.item-main .txt {
 }
 .item.kid-first { margin-top: 3px; padding-top: 3px; border-top: 1px dashed var(--line); }
 .who-pick { grid-template-columns: repeat(2, 1fr); }
+.kid-block { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.field .kid-tag { margin-right: 2px; vertical-align: 1px; }
 .who-pick label { padding: 6px 0; font-size: 15px; }
 .who-pick input[value="kid"]:checked + label { background: var(--kid-bg); border-color: var(--kid-ink); color: var(--kid-ink); }
 .item { position: relative; }
@@ -325,6 +327,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   width: min(440px, 100%); background: var(--surface); color: var(--ink);
   border-radius: 20px; padding: 20px; box-shadow: 0 20px 60px -20px rgba(0,0,0,.45);
   display: flex; flex-direction: column; gap: 14px;
+  max-height: 100%; overflow-y: auto; overscroll-behavior: contain; /* small phones: scroll inside the window */
   animation: rise .18s ease-out;
 }
 @keyframes rise { from { transform: translateY(12px); opacity: .6; } to { transform: none; opacity: 1; } }
@@ -492,7 +495,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <p id="sheet-when"></p>
     </div>
     <div class="meal-pick" role="radiogroup" aria-label="끼니" id="meal-pick"></div>
-    <div class="meal-pick who-pick" role="radiogroup" aria-label="누구 메뉴">
+    <div class="meal-pick who-pick" role="radiogroup" aria-label="누구 메뉴" id="who-pick">
       <input type="radio" name="who" id="who-adult" value="adult"><label for="who-adult">어른</label>
       <input type="radio" name="who" id="who-kid" value="kid"><label for="who-kid">아이</label>
     </div>
@@ -504,8 +507,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <div class="day-pick" id="day-pick" role="group" aria-label="날짜 선택"></div>
     </div>
     <label class="field" for="f-text">
-      <span>메뉴</span>
-      <input id="f-text" maxlength="80" autocomplete="off" placeholder="예: 토스트">
+      <span id="f-text-label">어른 메뉴</span>
+      <input id="f-text" maxlength="80" autocomplete="off" placeholder="예: 김치찌개">
     </label>
     <div class="suggest" id="f-suggest" hidden aria-label="전에 넣었던 메뉴"></div>
     <label class="field" for="f-url">
@@ -513,6 +516,19 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <input id="f-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
     </label>
     <p class="hint" id="f-hint"></p>
+    <!-- 아이 메뉴: added together with the adults' menu (add only; editing one menu uses 어른/아이 above) -->
+    <div class="kid-block" id="kid-block">
+      <label class="field" for="f-kid">
+        <span><span class="kid-tag">아이</span> 아이 메뉴<em>선택</em></span>
+        <input id="f-kid" maxlength="80" autocomplete="off" placeholder="예: 계란찜">
+      </label>
+      <div class="suggest" id="f-kid-suggest" hidden aria-label="전에 넣었던 메뉴"></div>
+      <label class="field" for="f-kid-url" id="f-kid-url-field" hidden>
+        <span>아이 메뉴 링크<em>선택</em></span>
+        <input id="f-kid-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
+      </label>
+      <p class="hint" id="f-kid-hint"></p>
+    </div>
     <div class="sheet-actions">
       <button type="button" class="btn danger" id="f-delete" hidden>삭제</button>
       <span class="spacer"></span>
@@ -759,6 +775,14 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   }
   const remembered = (name) => menuLibrary().get(normName(name)) || null;
 
+  // Adding: an 어른 메뉴 and an 아이 메뉴 can be written together. Editing one menu: one name, with 어른/아이.
+  const fKid = document.getElementById('f-kid');
+  const fKidUrl = document.getElementById('f-kid-url');
+  const fKidUrlField = document.getElementById('f-kid-url-field');
+  const fKidHint = document.getElementById('f-kid-hint');
+  const fKidSuggest = document.getElementById('f-kid-suggest');
+  const fSuggest = document.getElementById('f-suggest');
+
   function openEditor(key, meal, id, trigger, prefill) {
     const item = id ? findItem(key, meal, id) : null;
     editing = { key, meal, id: item ? id : null };
@@ -766,19 +790,27 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const d = fromKey(key);
     document.getElementById('sheet-title').textContent = item ? '메뉴 수정' : '메뉴 추가';
     document.getElementById('sheet-when').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${dowName(d)}요일`;
+    document.getElementById('f-text-label').textContent = item ? '메뉴' : '어른 메뉴';
+    document.getElementById('who-pick').hidden = !item;
+    document.getElementById('kid-block').hidden = !!item;
     form.elements.meal.value = meal;
-    form.elements.who.value = (item ? item.kid : prefill && prefill.kid) ? 'kid' : 'adult';
+    form.elements.who.value = item && item.kid ? 'kid' : 'adult';
     buildDayPick(key);
     document.getElementById('day-pick-wrap').hidden = !!item;
-    fText.value = item ? item.text : (prefill && prefill.text) || '';
-    fUrl.value = item ? item.url : (prefill && prefill.url) || '';
+    const forKid = !item && prefill && prefill.kid;
+    fText.value = item ? item.text : (prefill && !forKid && prefill.text) || '';
+    fUrl.value = item ? item.url : (prefill && !forKid && prefill.url) || '';
+    fKid.value = forKid ? prefill.text || '' : '';
+    fKidUrl.value = forKid ? prefill.url || '' : '';
     fDelete.hidden = !item;
     fDelete.classList.remove('armed'); fDelete.textContent = '삭제';
-    renderSuggest();
+    renderSuggest(fText, fSuggest, false);
+    renderSuggest(fKid, fKidSuggest, true);
     updateHint();
+    updateKidHint();
     sheet.hidden = false;
     document.documentElement.style.overflow = 'hidden';
-    setTimeout(() => fText.focus(), 30);
+    setTimeout(() => (forKid ? fKid : fText).focus(), 30);
   }
   // Day checkboxes for the week of the clicked date; the clicked day starts checked.
   const dayPick = document.getElementById('day-pick');
@@ -808,83 +840,91 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     if (returnFocus && document.contains(returnFocus)) returnFocus.focus();
   }
 
-  function updateHint(errText) {
-    fHint.classList.toggle('err', !!errText);
-    if (errText) { fHint.textContent = errText; return; }
-    const raw = fUrl.value.trim();
+  // The line under a name + link: the link's site, or what is remembered for that name.
+  function writeHint(hintEl, nameInput, urlInput, errText) {
+    hintEl.classList.toggle('err', !!errText);
+    if (errText) { hintEl.textContent = errText; return; }
+    const raw = urlInput.value.trim();
     if (!raw) {
-      fHint.textContent = '';
-      const memo = editing && !editing.id && fText.value.trim() ? remembered(fText.value) : null;
+      hintEl.textContent = '';
+      const memo = editing && !editing.id && nameInput.value.trim() ? remembered(nameInput.value) : null;
       if (memo && memo.url) {
-        fHint.innerHTML = ICONS[platform(memo.url)];
-        fHint.append(memo.ing ? '전에 넣은 링크와 찾아둔 재료를 같이 넣어요' : '전에 넣은 링크를 같이 넣어요');
-      } else if (memo && memo.ing) fHint.textContent = '전에 찾아둔 재료를 같이 기억해요';
+        hintEl.innerHTML = ICONS[platform(memo.url)];
+        hintEl.append(memo.ing ? '전에 넣은 링크와 찾아둔 재료를 같이 넣어요' : '전에 넣은 링크를 같이 넣어요');
+      } else if (memo && memo.ing) hintEl.textContent = '전에 찾아둔 재료를 같이 기억해요';
       return;
     }
     const url = normUrl(raw);
-    if (url === null) { fHint.textContent = 'https:// 로 시작하는 주소인지 확인해 주세요'; fHint.classList.add('err'); return; }
+    if (url === null) { hintEl.textContent = 'https:// 로 시작하는 주소인지 확인해 주세요'; hintEl.classList.add('err'); return; }
     const p = platform(url);
-    fHint.innerHTML = ICONS[p];
-    fHint.append(`${PLATFORM_NAME[p]} 링크 · 주소는 숨기고 메뉴 이름을 누르면 열려요`);
+    hintEl.innerHTML = ICONS[p];
+    hintEl.append(`${PLATFORM_NAME[p]} 링크 · 주소는 숨기고 메뉴 이름을 누르면 열려요`);
   }
+  const updateHint = (errText) => writeHint(fHint, fText, fUrl, errText);
+  const updateKidHint = (errText) => {
+    fKidUrlField.hidden = !fKid.value.trim() && !fKidUrl.value.trim();
+    writeHint(fKidHint, fKid, fKidUrl, errText);
+  };
 
-  // Pasting a link into the menu field moves it to the link field.
-  fText.addEventListener('input', () => {
-    const m = fText.value.match(/https?:\/\/[^\s<>"']+/i);
-    if (m && !fUrl.value.trim()) {
-      fUrl.value = m[0];
-      fText.value = fText.value.replace(m[0], '').replace(/\s{2,}/g, ' ').trim();
+  // Pasting a link into a name field moves it to that menu's link field.
+  function takeLink(nameInput, urlInput) {
+    const m = nameInput.value.match(/https?:\/\/[^\s<>"']+/i);
+    if (m && !urlInput.value.trim()) {
+      urlInput.value = m[0];
+      nameInput.value = nameInput.value.replace(m[0], '').replace(/\s{2,}/g, ' ').trim();
     }
-    renderSuggest();
-    updateHint();
-  });
+  }
+  fText.addEventListener('input', () => { takeLink(fText, fUrl); renderSuggest(fText, fSuggest, false); updateHint(); });
+  fKid.addEventListener('input', () => { takeLink(fKid, fKidUrl); renderSuggest(fKid, fKidSuggest, true); updateKidHint(); });
+  fUrl.addEventListener('input', () => updateHint());
+  fKidUrl.addEventListener('input', () => updateKidHint());
 
-  // Past menus matching what is typed, most-used first; tapping one fills in its name (and link).
-  const fSuggest = document.getElementById('f-suggest');
-  function renderSuggest() {
-    fSuggest.replaceChildren();
-    const q = normName(fText.value);
-    if (!editing || editing.id || !q) { fSuggest.hidden = true; return; }
+  // Past menus matching what is typed, most-used first (kids' menus first in the 아이 field).
+  function renderSuggest(input, box, kidFirst) {
+    box.replaceChildren();
+    const q = normName(input.value);
+    if (!editing || editing.id || !q) { box.hidden = true; return; }
     const hits = [...menuLibrary().values()]
       .filter((e) => normName(e.name).includes(q) && normName(e.name) !== q)
-      .sort((a, b) => b.count - a.count || (a.last < b.last ? 1 : -1))
+      .sort((a, b) => (kidFirst ? b.kid - a.kid : a.kid - b.kid) || b.count - a.count || (a.last < b.last ? 1 : -1))
       .slice(0, 6);
-    fSuggest.hidden = !hits.length;
+    box.hidden = !hits.length;
     for (const e of hits) {
-      const chip = el('button', { type: 'button', class: 'chip', 'data-name': e.name, 'data-kid': e.kid ? '1' : null });
+      const chip = el('button', { type: 'button', class: 'chip', 'data-name': e.name });
       if (e.kid) chip.append(el('span', { class: 'kid-tag' }, '아이'));
       if (e.url) chip.insertAdjacentHTML('beforeend', ICONS[platform(e.url)]);
       chip.append(e.name);
-      fSuggest.append(chip);
+      box.append(chip);
     }
   }
-  fSuggest.addEventListener('click', (e) => {
+  function pickChip(e, input, box, kidFirst, hint) {
     const chip = e.target.closest('.chip');
     if (!chip) return;
-    fText.value = chip.dataset.name;
-    form.elements.who.value = chip.dataset.kid ? 'kid' : 'adult'; // as it was last planned
-    renderSuggest();
-    updateHint();
-    fText.focus();
-  });
-  fUrl.addEventListener('input', () => updateHint());
+    input.value = chip.dataset.name;
+    renderSuggest(input, box, kidFirst);
+    hint();
+    input.focus();
+  }
+  fSuggest.addEventListener('click', (e) => pickChip(e, fText, fSuggest, false, updateHint));
+  fKidSuggest.addEventListener('click', (e) => pickChip(e, fKid, fKidSuggest, true, updateKidHint));
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!editing) return;
-    let text = fText.value.trim();
-    const url = fUrl.value.trim() ? normUrl(fUrl.value) : '';
-    if (url === null) { updateHint('https:// 로 시작하는 주소인지 확인해 주세요'); fUrl.focus(); return; }
-    if (!text && !url) { updateHint('메뉴 이름이나 링크를 적어 주세요'); fText.focus(); return; }
-    if (!text) text = defaultLabel(url);
     const meal = form.elements.meal.value || editing.meal;
-    const kid = form.elements.who.value === 'kid';
     const prepared = (k) => {
       const day = clone(days[k]);
       MEALS.forEach((m) => { if (!Array.isArray(day[m.key])) day[m.key] = []; });
       return day;
     };
+    const url = fUrl.value.trim() ? normUrl(fUrl.value) : '';
+    if (url === null) { updateHint('https:// 로 시작하는 주소인지 확인해 주세요'); fUrl.focus(); return; }
+
     if (editing.id) {
+      let text = fText.value.trim();
+      if (!text && !url) { updateHint('메뉴 이름이나 링크를 적어 주세요'); fText.focus(); return; }
+      if (!text) text = defaultLabel(url);
+      const kid = form.elements.who.value === 'kid';
       const day = prepared(editing.key);
       const list = day[editing.meal];
       const idx = list.findIndex((x) => x.id === editing.id);
@@ -899,19 +939,31 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       saveDay(key, day);
       return;
     }
+
+    const kidUrl = fKidUrl.value.trim() ? normUrl(fKidUrl.value) : '';
+    if (kidUrl === null) { updateKidHint('https:// 로 시작하는 주소인지 확인해 주세요'); fKidUrl.focus(); return; }
+    const menus = [];
+    if (fText.value.trim() || url) menus.push({ text: fText.value.trim() || defaultLabel(url), url, kid: false });
+    if (fKid.value.trim() || kidUrl) menus.push({ text: fKid.value.trim() || defaultLabel(kidUrl), url: kidUrl, kid: true });
+    if (!menus.length) { updateHint('어른 메뉴나 아이 메뉴를 적어 주세요'); fText.focus(); return; }
     const keys = [...dayPick.querySelectorAll('input:checked')].map((x) => x.value);
     if (!keys.length) { updateHint('날짜를 하나 이상 골라 주세요'); return; }
     // A menu planned before brings back its link (if none was given) and the 재료 found for that link.
-    const memo = remembered(text);
-    const useUrl = url || (memo && memo.url) || '';
-    const ing = memo && memo.ing && (!memo.url || memo.url === useUrl) ? memo.ing : null;
+    const entries = menus.map((m) => {
+      const memo = remembered(m.text);
+      const useUrl = m.url || (memo && memo.url) || '';
+      const ing = memo && memo.ing && (!memo.url || memo.url === useUrl) ? memo.ing : null;
+      return { text: m.text, url: useUrl, kid: m.kid, ing };
+    });
     closeEditor();
     for (const k of keys) {
       const day = prepared(k);
-      const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), text, url: useUrl };
-      if (kid) entry.kid = true;
-      if (ing) entry.ing = clone(ing);
-      day[meal].push(entry);
+      for (const m of entries) {
+        const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), text: m.text, url: m.url };
+        if (m.kid) entry.kid = true;
+        if (m.ing) entry.ing = clone(m.ing);
+        day[meal].push(entry);
+      }
       saveDay(k, day);
     }
   });
