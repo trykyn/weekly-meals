@@ -86,7 +86,8 @@ function linkKind(raw) {
     const host = new URL(raw).hostname.replace(/^(www|m)\./, "");
     if (host === "youtu.be" || host.endsWith("youtube.com")) return "youtube";
     if (host.endsWith("instagram.com")) return "instagram";
-    if (host.endsWith("notion.site") || host.endsWith("notion.so")) return "notion";
+    // notion.so (old links), app.notion.com / notion.com (new share links), *.notion.site (published sites)
+    if (host.endsWith("notion.site") || host.endsWith("notion.so") || host === "notion.com" || host.endsWith(".notion.com")) return "notion";
   } catch {}
   return "web";
 }

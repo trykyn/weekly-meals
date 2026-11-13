@@ -822,7 +822,7 @@ a.item-main .txt {
   const AMOUNT_AT = new RegExp(`[0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS}`, 'u');
   const UNIT_RE = /\d\s*(kg|g|mg|ml|l|cc|컵|큰술|작은술|숟가락|스푼|티스푼|T|t|개|알|모|쪽|줌|꼬집|대|뿌리|장|봉지|팩|캔|통|단|포기|마리|토막|조각|덩이|공기|톨|줄기)/i;
   const RE_HEAD = /^[^\p{L}\p{N}]*(주\s*재료|부\s*재료|기본\s*재료|재료|양념\s*장?|소스|드레싱|ingredients?)(?=$|[^\p{L}])/iu;
-  const RE_STOP = /^[^\p{L}\p{N}]*(만드는|만들기|조리\s*(법|방법|순서)|요리\s*(법|순서|방법)|레시피\s*(순서|방법)|순서|방법|how\s*to|directions|instructions|method|tip\b|팁|(레시피|recipe)[\s:：]*$)/iu;
+  const RE_STOP = /^[^\p{L}\p{N}]*(만드는|만들기|조리\s*(법|방법|순서)|요리\s*(법|순서|방법)|레시피\s*(순서|방법)|순서|방법|how\s*to|directions|instructions|method|tip\b|팁|준비물|도구|주의\s*사항|참고|(레시피|recipe)[\s:：]*$)/iu;
   const LEAD_JUNK = /^[\s\p{P}\p{S}\p{Extended_Pictographic}️‍]+/u;
   const TRAIL_JUNK = /[\s\p{Extended_Pictographic}️‍]+$/u;
 
@@ -849,7 +849,9 @@ a.item-main .txt {
   // Finds the 재료 / 양념 lists in a recipe text. Works when the recipe writes its 재료 as a list,
   // which Notion recipes, most YouTube descriptions and many reels captions do.
   function parseIngredients(text) {
-    const lines = String(text || '').replace(/\r/g, '').split('\n').map((l) => l.trim());
+    // Notes in brackets ("200g (실온에 두기)") are dropped so they don't read as sentences or split on their commas.
+    const lines = String(text || '').replace(/\r/g, '').split('\n')
+      .map((l) => l.replace(/\s*(\([^)]*\)|（[^）]*）)/g, '').trim());
     const out = [], seen = new Set();
     const push = (piece) => {
       const x = splitNameAmount(piece);
