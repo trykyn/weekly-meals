@@ -250,6 +250,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .chip.soon small { color: var(--danger); font-weight: 600; }
 .useup-btn, .gather-btn { flex: none; }
 .stock-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* two lines of chips: 2 × chip height (31px) + one gap */
+.stock-chips.clamp { max-height: 68px; overflow: hidden; }
+.stock-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: -6px; }
 .recs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .rec { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; }
 .rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -1915,7 +1918,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   const useup = document.getElementById('useup');
   const useupBody = document.getElementById('useup-body');
-  let useupOpen = false, reading = 0, bookReading = 0, bookReadTotal = 0;
+  let useupOpen = false, reading = 0, bookReading = 0, bookReadTotal = 0, stockExpanded = false;
 
   function openUseUp() {
     useupOpen = true;
@@ -1989,12 +1992,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     }
 
     const leftText = (l) => (l === null ? '' : l < 0 ? '기한 지남' : l === 0 ? '오늘까지' : `${l}일`);
-    const chips = el('div', { class: 'stock-chips' });
-    for (const s of stock.slice(0, 14)) {
+    // Two lines of chips (closest 유통기한 first); "모두 보기" opens the rest.
+    const chips = el('div', { class: 'stock-chips' + (stockExpanded ? '' : ' clamp') });
+    for (const s of stock) {
       chips.append(el('span', { class: 'chip' + (s.left !== null && s.left <= 2 ? ' soon' : '') }, s.name, s.left !== null ? el('small', null, leftText(s.left)) : null));
     }
-    if (stock.length > 14) chips.append(el('span', { class: 'chip' }, el('small', null, `외 ${stock.length - 14}개`)));
-    useupBody.append(el('p', { class: 'shop-msg' }, `남은 재료 ${stock.length}개`), chips);
+    const more = el('button', { type: 'button', class: 'link-btn', hidden: true }, stockExpanded ? '접기' : `모두 보기 (${stock.length})`);
+    more.addEventListener('click', () => { stockExpanded = !stockExpanded; renderUseUp(); });
+    useupBody.append(el('div', { class: 'stock-head' }, el('span', { class: 'shop-msg' }, `남은 재료 ${stock.length}개`), more), chips);
+    requestAnimationFrame(() => { more.hidden = !stockExpanded && chips.scrollHeight <= chips.clientHeight + 2; });
 
     if (reading > 0 || bookReading > 0) {
       const what = bookReading > 0
