@@ -200,7 +200,6 @@ a.item-main .txt {
   font-size: 11px; font-weight: 600; color: var(--kid-ink); background: var(--kid-bg); letter-spacing: .02em;
 }
 .item.kid-first { margin-top: 3px; padding-top: 3px; border-top: 1px dashed var(--line); }
-.who-pick { grid-template-columns: repeat(2, 1fr); }
 .photo-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: -6px; }
 .photo-row .photo-btn { height: 36px; padding: 0 12px; font-size: 13.5px; }
 .photo-note { margin: 0; line-height: 1.5; }
@@ -209,9 +208,6 @@ a.item-main .txt {
 .link-btn:hover { color: var(--ink); }
 .kid-block { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .field .kid-tag { margin-right: 2px; vertical-align: 1px; }
-.kid-tag.adult-tag { color: var(--ink); background: var(--yolk-soft); }
-.who-pick label { padding: 6px 0; font-size: 15px; }
-.who-pick input[value="kid"]:checked + label { background: var(--kid-bg); border-color: var(--kid-ink); color: var(--kid-ink); }
 .item { position: relative; }
 .item-tools { flex: none; display: flex; gap: 2px; }
 .item-tools button {
@@ -603,10 +599,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <p id="sheet-when"></p>
     </div>
     <div class="meal-pick" role="radiogroup" aria-label="끼니" id="meal-pick"></div>
-    <div class="meal-pick who-pick" role="radiogroup" aria-label="누구 메뉴" id="who-pick">
-      <input type="radio" name="who" id="who-adult" value="adult"><label for="who-adult">어른</label>
-      <input type="radio" name="who" id="who-kid" value="kid"><label for="who-kid">아이</label>
-    </div>
     <div class="day-pick-wrap" id="day-pick-wrap">
       <div class="day-pick-head">
         <span>날짜<small>여러 날 고를 수 있어요</small></span>
@@ -964,24 +956,22 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   function openEditor(key, meal, id, trigger, prefill) {
     const item = id ? findItem(key, meal, id) : null;
-    editing = { key, meal, id: item ? id : null };
+    // Adding and editing both show an 어른 메뉴 and a 아이 메뉴 field. Editing puts the menu in its own
+    // field; whatever is written in the other field is added to the same meal.
+    editing = { key, meal, id: item ? id : null, kid: !!(item && item.kid) };
     returnFocus = trigger || null;
     const d = fromKey(key);
     document.getElementById('sheet-title').textContent = item ? '메뉴 수정' : '메뉴 추가';
     document.getElementById('sheet-when').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${dowName(d)}요일`;
-    document.getElementById('f-text-label').textContent = item ? '메뉴' : '어른 메뉴';
-    document.getElementById('who-pick').hidden = !item;
-    // Adding: 어른 + 아이 together. Editing: the second field adds the other one (아이 to an 어른 menu, or 어른 to a 아이 menu).
-    document.getElementById('kid-block').hidden = false;
     form.elements.meal.value = meal;
-    form.elements.who.value = item && item.kid ? 'kid' : 'adult';
     buildDayPick(key);
     document.getElementById('day-pick-wrap').hidden = !!item;
-    const forKid = !item && prefill && prefill.kid;
-    fText.value = item ? item.text : (prefill && !forKid && prefill.text) || '';
-    fUrl.value = item ? item.url : (prefill && !forKid && prefill.url) || '';
-    fKid.value = forKid ? prefill.text || '' : '';
-    fKidUrl.value = forKid ? prefill.url || '' : '';
+    const src = item || prefill || {};
+    const forKid = item ? !!item.kid : !!(prefill && prefill.kid);
+    fText.value = forKid ? '' : src.text || '';
+    fUrl.value = forKid ? '' : src.url || '';
+    fKid.value = forKid ? src.text || '' : '';
+    fKidUrl.value = forKid ? src.url || '' : '';
     fDelete.hidden = !item;
     fDelete.classList.remove('armed'); fDelete.textContent = '삭제';
     resetPhotoIng();
@@ -991,7 +981,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     updateKidHint();
     sheet.hidden = false;
     document.documentElement.style.overflow = 'hidden';
-    setOtherLabel();
     setTimeout(() => (forKid ? fKid : fText).focus(), 30);
   }
   // Day checkboxes for the week of the clicked date; the clicked day starts checked.
@@ -1029,7 +1018,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const raw = urlInput.value.trim();
     if (!raw) {
       hintEl.textContent = '';
-      const memo = editing && (!editing.id || nameInput === fKid) && nameInput.value.trim() ? remembered(nameInput.value) : null;
+      // Remembered link/재료 are filled in for new menus only, so editing a menu shows no such hint in its own field.
+      const ownField = editing && editing.id ? (editing.kid ? fKid : fText) : null;
+      const memo = editing && nameInput !== ownField && nameInput.value.trim() ? remembered(nameInput.value) : null;
       if (memo && memo.url) {
         hintEl.innerHTML = ICONS[platform(memo.url)];
         hintEl.append(memo.ing ? '전에 넣은 링크와 찾아둔 재료를 같이 넣어요' : '전에 넣은 링크를 같이 넣어요');
@@ -1066,8 +1057,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   function renderSuggest(input, box, kidFirst) {
     box.replaceChildren();
     const q = normName(input.value);
-    if (!editing || (editing.id && box !== fKidSuggest) || !q) { box.hidden = true; return; }
-    if (box === fKidSuggest) kidFirst = otherIsKid();
+    if (!editing || !q) { box.hidden = true; return; }
     const hits = [...menuLibrary().values()]
       .filter((e) => normName(e.name).includes(q) && normName(e.name) !== q)
       .sort((a, b) => (kidFirst ? b.kid - a.kid : a.kid - b.kid) || b.count - a.count || (a.last < b.last ? 1 : -1))
@@ -1092,21 +1082,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   fSuggest.addEventListener('click', (e) => pickChip(e, fText, fSuggest, false, updateHint));
   fKidSuggest.addEventListener('click', (e) => pickChip(e, fKid, fKidSuggest, true, updateKidHint));
 
-  // The second field is the 아이 메뉴 when adding; when editing it is the opposite of the menu being edited.
-  const otherIsKid = () => !editing || !editing.id || form.elements.who.value !== 'kid';
-  function setOtherLabel() {
-    const kid = otherIsKid(), adding = !!(editing && editing.id);
-    const tag = document.getElementById('other-tag');
-    tag.textContent = kid ? '아이' : '어른';
-    tag.className = kid ? 'kid-tag' : 'kid-tag adult-tag';
-    document.getElementById('other-label').textContent = `${kid ? '아이' : '어른'} 메뉴${adding ? ' 추가' : ''}`;
-    document.getElementById('other-url-label').textContent = `${kid ? '아이' : '어른'} 메뉴 링크`;
-    fKid.placeholder = kid ? '예: 계란찜' : '예: 김치찌개';
-  }
-  for (const r of form.querySelectorAll('input[name="who"]')) {
-    r.addEventListener('change', () => { setOtherLabel(); renderSuggest(fKid, fKidSuggest, true); });
-  }
-
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!editing) return;
@@ -1120,6 +1095,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     if (url === null) { updateHint('https:// 로 시작하는 주소인지 확인해 주세요'); fUrl.focus(); return; }
     const kidUrl = fKidUrl.value.trim() ? normUrl(fKidUrl.value) : '';
     if (kidUrl === null) { updateKidHint('https:// 로 시작하는 주소인지 확인해 주세요'); fKidUrl.focus(); return; }
+    if (photoIng.adult && !fText.value.trim() && !url) { updateHint('사진에서 읽은 재료의 메뉴 이름을 적어 주세요'); fText.focus(); return; }
     if (photoIng.kid && !fKid.value.trim() && !kidUrl) { updateKidHint('사진에서 읽은 재료의 메뉴 이름을 적어 주세요'); fKid.focus(); return; }
     // A menu planned before brings back its link (if none was given) and the 재료 found for that link.
     const withMemory = (m) => {
@@ -1137,23 +1113,35 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     };
 
     if (editing.id) {
-      let text = fText.value.trim();
-      if (!text && !url) { updateHint('메뉴 이름이나 링크를 적어 주세요'); fText.focus(); return; }
-      if (!text) text = defaultLabel(url);
-      const kid = form.elements.who.value === 'kid';
+      // The edited menu sits in its own field (어른 or 아이); the other field adds a menu to the same meal.
+      // Emptying the own field and writing in the other one turns an 어른 menu into a 아이 menu or back.
+      const fields = {
+        adult: { text: fText.value.trim(), url, photo: photoIng.adult, input: fText, hint: updateHint },
+        kid: { text: fKid.value.trim(), url: kidUrl, photo: photoIng.kid, input: fKid, hint: updateKidHint },
+      };
+      const mine = editing.kid ? fields.kid : fields.adult;
+      const other = editing.kid ? fields.adult : fields.kid;
+      if (!mine.text && !mine.url && !other.text && !other.url) {
+        mine.hint('메뉴 이름이나 링크를 적어 주세요. 지우려면 삭제를 눌러 주세요');
+        mine.input.focus();
+        return;
+      }
+      const prev = findItem(editing.key, editing.meal, editing.id);
       const day = prepared(editing.key);
       const list = day[editing.meal];
       const idx = list.findIndex((x) => x.id === editing.id);
-      const updated = { id: editing.id, text, url };
-      if (kid) updated.kid = true;
-      const prev = findItem(editing.key, editing.meal, editing.id);
-      if (photoIng.adult) updated.ing = photoIng.adult;
-      else if (prev && prev.ing && prev.url === url) updated.ing = prev.ing;
-      if (idx >= 0 && meal === editing.meal) list[idx] = updated;
-      else { if (idx >= 0) list.splice(idx, 1); day[meal].push(updated); }
-      // The other menu written in the second field joins the same meal (아이 for an 어른 menu, or the reverse).
-      if (fKid.value.trim() || kidUrl) {
-        day[meal].push(newEntry(withMemory({ text: fKid.value.trim() || defaultLabel(kidUrl), url: kidUrl, kid: !kid, photoIng: photoIng.kid })));
+      if (idx >= 0) list.splice(idx, 1);
+      if (mine.text || mine.url) {
+        const updated = { id: editing.id, text: mine.text || defaultLabel(mine.url), url: mine.url };
+        if (editing.kid) updated.kid = true;
+        if (mine.photo) updated.ing = mine.photo;
+        else if (prev && prev.ing && prev.url === mine.url) updated.ing = prev.ing;
+        if (prev && prev.shopped && prev.ing && updated.ing === prev.ing) updated.shopped = true;
+        if (meal === editing.meal && idx >= 0) list.splice(idx, 0, updated);
+        else day[meal].push(updated);
+      }
+      if (other.text || other.url) {
+        day[meal].push(newEntry(withMemory({ text: other.text || defaultLabel(other.url), url: other.url, kid: !editing.kid, photoIng: other.photo })));
       }
       const key = editing.key;
       closeEditor();
@@ -1161,7 +1149,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       return;
     }
 
-    if (photoIng.adult && !fText.value.trim() && !url) { updateHint('사진에서 읽은 재료의 메뉴 이름을 적어 주세요'); fText.focus(); return; }
     const menus = [];
     if (fText.value.trim() || url) menus.push({ text: fText.value.trim() || defaultLabel(url), url, kid: false, photoIng: photoIng.adult });
     if (fKid.value.trim() || kidUrl) menus.push({ text: fKid.value.trim() || defaultLabel(kidUrl), url: kidUrl, kid: true, photoIng: photoIng.kid });
