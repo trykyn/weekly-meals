@@ -65,6 +65,7 @@ async function googleKeys() {
   keyCache = { keys, until: Date.now() + maxAge * 1000 };
   return keys;
 }
+const importedKeys = new Map();
 const b64url = (s) => {
   const b = s.replace(/-/g, "+").replace(/_/g, "/");
   return Uint8Array.from(atob(b + "=".repeat((4 - (b.length % 4)) % 4)), (c) => c.charCodeAt(0));
@@ -78,7 +79,12 @@ async function verifyFirebaseToken(token) {
   if (header.alg !== "RS256") throw new Error("alg");
   const jwk = (await googleKeys()).find((k) => k.kid === header.kid);
   if (!jwk) throw new Error("kid");
-  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  // Imported once per key id (reading a whole recipe book sends many requests in a row).
+  let key = importedKeys.get(jwk.kid);
+  if (!key) {
+    key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    importedKeys.set(jwk.kid, key);
+  }
   const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64url(sig), new TextEncoder().encode(`${h}.${p}`));
   if (!ok) throw new Error("signature");
   const now = Date.now() / 1000;
@@ -110,6 +116,37 @@ async function get(url, init = {}) {
   return r;
 }
 
+// A page's text, at most 3 MB of it (a recipe never needs more; a huge page would use up the worker's memory).
+async function pageText(r, max = 3_000_000) {
+  if (!r.body) return "";
+  const reader = r.body.getReader(), decoder = new TextDecoder();
+  let out = "", size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    out += decoder.decode(value, { stream: true });
+    if (size >= max) { await reader.cancel(); break; }
+  }
+  return out + decoder.decode();
+}
+
+/* ---------- Notion ---------- */
+// Public Notion pages are read through the same endpoints the Notion website uses.
+const plain = (prop) => (Array.isArray(prop) ? prop.map((seg) => (Array.isArray(seg) ? seg[0] : "")).join("") : "");
+const unwrap = (rec) => (rec && rec.value && rec.value.value ? rec.value.value : rec && rec.value);
+function notionPage(u) {
+  const hex = (u.pathname.replace(/-/g, "").match(/[0-9a-f]{32}(?=$|\/|\?)/i) || [])[0] || (u.pathname.match(/[0-9a-f]{32}/i) || [])[0];
+  if (!hex) return null;
+  return {
+    pageId: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`.toLowerCase(),
+    // published sites (*.notion.site) answer on their own address, everything else on notion.so
+    call: async (name, body) => (await get(`${u.hostname.endsWith("notion.site") ? u.origin : "https://www.notion.so"}/api/v3/${name}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    })).json(),
+  };
+}
+
 async function readLink(raw) {
   const u = new URL(raw);
   if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("protocol");
@@ -129,11 +166,25 @@ async function readYouTube(u) {
   const watch = `https://www.youtube.com/watch?v=${id}`;
   let title = "", text = "";
   try {
-    const html = await (await get(`${watch}&hl=ko`)).text();
+    // The consent cookie skips the "Before you continue to YouTube" page shown to servers in Europe.
+    const html = await pageText(await get(`${watch}&hl=ko`, { headers: { Cookie: "SOCS=CAI; CONSENT=YES+cb" } }));
     const player = jsonAfter(html, "ytInitialPlayerResponse = ");
     title = player?.videoDetails?.title || "";
     text = player?.videoDetails?.shortDescription || "";
   } catch (e) { console.warn("youtube page", String(e)); }
+  if (!text) {
+    // Still no description: ask YouTube's player data endpoint (what the YouTube website itself calls).
+    try {
+      const r = await get("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: id, context: { client: { clientName: "WEB", clientVersion: "2.20241101.00.00", hl: "ko" } } }),
+      });
+      const player = await r.json();
+      title = title || player?.videoDetails?.title || "";
+      text = player?.videoDetails?.shortDescription || "";
+    } catch (e) { console.warn("youtube player", String(e)); }
+  }
   if (!title) {
     try { title = (await (await get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watch)}`)).json()).title || ""; } catch {}
   }
@@ -146,7 +197,7 @@ async function readInstagram(u) {
   if (!m) return readWebPage(u);
   let text = "";
   try {
-    const html = await (await get(`https://www.instagram.com/p/${m[2]}/embed/captioned/`)).text();
+    const html = await pageText(await get(`https://www.instagram.com/p/${m[2]}/embed/captioned/`));
     const cap = html.match(/<div class="Caption"[^>]*>([\s\S]*?)<div class="CaptionComments/);
     if (cap) text = htmlToText(cap[1].replace(/<a[^>]*class="CaptionUsername"[^>]*>[\s\S]*?<\/a>/, ""));
     if (!text) {
@@ -155,33 +206,26 @@ async function readInstagram(u) {
     }
   } catch (e) { console.warn("instagram embed", String(e)); }
   if (!text) {
-    try { text = metaContent(await (await get(u.href)).text(), "og:description"); } catch {}
+    try { text = metaContent(await pageText(await get(u.href)), "og:description"); } catch {}
   }
   return { kind: "instagram", title: "", text: text.trim() };
 }
 
 // Notion: public pages (shared to the web) through Notion's page-loading endpoint.
 async function readNotion(u) {
-  const hex = (u.pathname.replace(/-/g, "").match(/[0-9a-f]{32}(?=$|\/|\?)/i) || [])[0] || (u.pathname.match(/[0-9a-f]{32}/i) || [])[0];
-  if (!hex) return readWebPage(u);
-  const pageId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`.toLowerCase();
-  const api = u.hostname.endsWith("notion.site") ? `${u.origin}/api/v3/loadCachedPageChunk` : "https://www.notion.so/api/v3/loadCachedPageChunk";
+  const notion = notionPage(u);
+  if (!notion) return readWebPage(u);
+  const { pageId, call } = notion;
   try {
     const blocks = {};
     let cursor = { stack: [] };
     for (let chunk = 0; chunk < 5; chunk++) {
-      const r = await get(api, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page: { id: pageId }, limit: 100, cursor, chunkNumber: chunk, verticalColumns: false }),
-      });
-      const data = await r.json();
-      for (const [id, rec] of Object.entries(data?.recordMap?.block || {})) blocks[id] = rec?.value?.value || rec?.value;
+      const data = await call("loadCachedPageChunk", { page: { id: pageId }, limit: 100, cursor, chunkNumber: chunk, verticalColumns: false });
+      for (const [id, rec] of Object.entries(data?.recordMap?.block || {})) blocks[id] = unwrap(rec);
       cursor = data?.cursor;
       if (!cursor || !cursor.stack || !cursor.stack.length) break;
     }
     const lines = [];
-    const plain = (prop) => (Array.isArray(prop) ? prop.map((seg) => (Array.isArray(seg) ? seg[0] : "")).join("") : "");
     const walk = (id, depth) => {
       const b = blocks[id];
       if (!b || depth > 6) return;
@@ -203,16 +247,9 @@ async function readNotion(u) {
 async function readNotionBook(raw) {
   const u = new URL(raw);
   if (linkKind(raw) !== "notion") throw new Error("not a notion link");
-  const hex = (u.pathname.replace(/-/g, "").match(/[0-9a-f]{32}/i) || [])[0];
-  if (!hex) throw new Error("no page id");
-  const dashed = (h) => `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`.toLowerCase();
-  const pageId = dashed(hex);
-  const base = u.hostname.endsWith("notion.site") ? u.origin : "https://www.notion.so";
-  const call = async (name, body) => (await get(`${base}/api/v3/${name}`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-  })).json();
-  const unwrap = (rec) => (rec && rec.value && rec.value.value ? rec.value.value : rec && rec.value);
-  const plain = (prop) => (Array.isArray(prop) ? prop.map((seg) => (Array.isArray(seg) ? seg[0] : "")).join("") : "");
+  const notion = notionPage(u);
+  if (!notion) throw new Error("no page id");
+  const { pageId, call } = notion;
   const linkIn = (prop) => (Array.isArray(prop) ? prop.flatMap((seg) => (Array.isArray(seg) && Array.isArray(seg[1]) ? seg[1] : []))
     .filter((f) => f[0] === "a" && /^https?:/.test(f[1])).map((f) => f[1])[0] || "" : "");
 
@@ -283,7 +320,7 @@ async function readNotionBook(raw) {
 
 // Any other page: a schema.org Recipe if the site has one, otherwise the page text.
 async function readWebPage(u) {
-  const html = await (await get(u.href)).text();
+  const html = await pageText(await get(u.href));
   const title = metaContent(html, "og:title") || htmlToText((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "");
   for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
     try {

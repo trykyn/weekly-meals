@@ -94,6 +94,10 @@ for (const c of ocrCases) {
   if (got === c.want) console.log(`ok    photo: ${c.name}`);
   else { failed++; console.log(`FAIL  photo: ${c.name}\n      want: ${c.want}\n      got:  ${got}`); }
 }
-const total = cases.length + ocrCases.length;
+// Older iPhones (Safari before iOS 16.4) can't parse regex lookbehind; one in the page stops the whole app.
+const lookbehind = html.match(/.*\(\?<[=!].*/);
+if (lookbehind) { failed++; console.log(`FAIL  no regex lookbehind in index.html (older iPhones can't load it)\n      ${lookbehind[0].trim()}`); }
+else console.log('ok    no regex lookbehind (older iPhones load the app)');
+const total = cases.length + ocrCases.length + 1;
 console.log(failed ? `\n${failed} of ${total} failed` : `\nall ${total} passed`);
 process.exit(failed ? 1 : 0);

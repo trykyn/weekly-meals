@@ -43,7 +43,7 @@
   --radius: 14px;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     --bg: #16130B; --surface: #221E12; --yolk: #FFC93A; --yolk-strong: #FFD460; --yolk-soft: #3B3114;
     --ink: #F7EFD5; --muted: #BDAE83; --line: #3A3320; --on-yolk: #2A2413; --on-brand: #FFFFFF;
     --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E; --kid-bg: #233A2A; --kid-ink: #93D6A4;
@@ -51,14 +51,6 @@
     --scrim: rgba(0, 0, 0, .6); --shadow: 0 6px 18px -10px rgba(0, 0, 0, .7);
     color-scheme: dark;
   }
-}
-:root[data-theme="dark"] {
-  --bg: #16130B; --surface: #221E12; --yolk: #FFC93A; --yolk-strong: #FFD460; --yolk-soft: #3B3114;
-  --ink: #F7EFD5; --muted: #BDAE83; --line: #3A3320; --on-yolk: #2A2413; --on-brand: #FFFFFF;
-  --sat: #84ACF4; --sun: #F38D8D; --yt: #FF5C54; --ig: #EC7ABD; --link: #D9C78F; --danger: #FF8A7E; --kid-bg: #233A2A; --kid-ink: #93D6A4;
-  --bowl: #E8562C; --rice: #FFFDF3; --rice-dot: #D9CDA8;
-  --scrim: rgba(0, 0, 0, .6); --shadow: 0 6px 18px -10px rgba(0, 0, 0, .7);
-  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -180,7 +172,7 @@ button { cursor: pointer; }
 .slot-label { display: none; font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 4px; letter-spacing: .02em; }
 
 .items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.item { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
+.item { position: relative; display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
 .item-main {
   flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 5px;
   padding: 4px 6px; border-radius: 8px; border: 0; background: none;
@@ -208,7 +200,6 @@ a.item-main .txt {
 .link-btn:hover { color: var(--ink); }
 .kid-block { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .field .kid-tag { margin-right: 2px; vertical-align: 1px; }
-.item { position: relative; }
 .item-tools { flex: none; display: flex; gap: 2px; }
 .item-tools button {
   width: 28px; height: 28px; border: 0; border-radius: 7px; background: none;
@@ -282,7 +273,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 /* Title, search, categories and 닫기 stay put; only the recipe list scrolls. */
 .book-sheet { width: min(600px, 100%); overflow: hidden; }
 .book-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
-.book-list { overflow-y: auto; min-height: 0; flex: 1; overscroll-behavior: contain; padding-bottom: 4px; }
+.book-list { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; min-height: 0; flex: 1; overscroll-behavior: contain; padding-bottom: 4px; }
 .book-search {
   width: 100%; height: 42px; padding: 0 12px; border-radius: 10px; border: 1.5px solid var(--line);
   background: var(--bg); color: var(--ink); font-size: 16px;
@@ -294,7 +285,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .book-cats .chip { flex: none; }
 .book-cats .chip.on { background: var(--yolk); border-color: var(--yolk); color: var(--on-yolk); }
 .book-cats .chip small { color: inherit; opacity: .7; }
-.book-list { display: flex; flex-direction: column; gap: 14px; }
 .book-sec h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 400; font-size: 18px; display: flex; align-items: baseline; gap: 6px; }
 .book-sec h3 small { font-family: var(--font-body); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .book-sec ul { list-style: none; margin: 0; padding: 0; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; }
@@ -342,7 +332,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 16px;
   color: var(--muted); font-size: 13px;
 }
-.foot strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .status {
   display: inline-flex; align-items: center; gap: 6px; border: 0; background: none;
   color: var(--muted); font-size: 13px; padding: 4px 0; text-decoration: underline;
@@ -372,7 +361,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .status[data-state="synced"]::before { background: #3BA55C; }
 .status[data-state="local"]::before { background: var(--yolk-strong); }
-.status[data-state="error"]::before, .status[data-state="slow"]::before { background: var(--danger); }
+.status[data-state="error"]::before { background: var(--danger); }
 
 /* ---------- phone layout ---------- */
 @media (max-width: 900px) {
@@ -607,7 +596,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       <div class="day-pick" id="day-pick" role="group" aria-label="날짜 선택"></div>
     </div>
     <label class="field" for="f-text">
-      <span id="f-text-label">어른 메뉴</span>
+      <span>어른 메뉴</span>
       <input id="f-text" maxlength="80" autocomplete="off" placeholder="예: 김치찌개">
     </label>
     <div class="suggest" id="f-suggest" hidden aria-label="전에 넣었던 메뉴"></div>
@@ -624,12 +613,12 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     <!-- 아이 메뉴: added together with the adults' menu (add only; editing one menu uses 어른/아이 above) -->
     <div class="kid-block" id="kid-block">
       <label class="field" for="f-kid">
-        <span><span class="kid-tag" id="other-tag">아이</span> <span id="other-label">아이 메뉴</span><em>선택</em></span>
+        <span><span class="kid-tag">아이</span> 아이 메뉴<em>선택</em></span>
         <input id="f-kid" maxlength="80" autocomplete="off" placeholder="예: 계란찜">
       </label>
       <div class="suggest" id="f-kid-suggest" hidden aria-label="전에 넣었던 메뉴"></div>
       <label class="field" for="f-kid-url" id="f-kid-url-field" hidden>
-        <span><span id="other-url-label">아이 메뉴 링크</span><em>선택</em></span>
+        <span>아이 메뉴 링크<em>선택</em></span>
         <input id="f-kid-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="주소를 붙여넣으세요">
       </label>
       <div class="photo-row" id="f-kid-photo-row" hidden>
@@ -727,19 +716,21 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   function setStatus(state, text) { statusEl.dataset.state = state; statusEl.textContent = text; }
 
   const clone = (o) => JSON.parse(JSON.stringify(o || {}));
+  const isWebLink = (u) => /^https?:\/\//i.test(String(u || ''));
+  // Notion page id (32 hex digits) in a link, or ''.
+  const notionId = (u) => ((String(u || '').replace(/-/g, '').match(/[0-9a-f]{32}/i) || [])[0] || '').toLowerCase();
   const isEmptyDay = (d) => MEALS.every((m) => !(d && d[m.key] && d[m.key].length));
   function cleanDay(d) {
     const out = {};
     for (const m of MEALS) out[m.key] = (d[m.key] || []).map((it) => {
-      const x = { id: String(it.id), text: String(it.text || ''), url: String(it.url || '') };
+      // Only web links are kept (a synced "javascript:" link would otherwise run when tapped).
+      const url = /^https?:\/\//i.test(String(it.url || '')) ? String(it.url) : '';
+      const x = { id: String(it.id), text: String(it.text || ''), url };
       if (it.kid) x.kid = true; // 아이 메뉴
       if (it.shopped) x.shopped = true; // 재료를 장보기 앱에 넣었어요
       // Ingredients found earlier for this menu, kept so the next 장보기 needs no new lookup.
       if (it.ing && Array.isArray(it.ing.list)) {
-        x.ing = {
-          dish: String(it.ing.dish || ''), src: !!it.ing.src, kind: String(it.ing.kind || ''),
-          list: it.ing.list.slice(0, 60).map((i) => ({ name: String(i.name || ''), amount: String(i.amount || '') })),
-        };
+        x.ing = { list: it.ing.list.slice(0, 60).map((i) => ({ name: String(i.name || ''), amount: String(i.amount || '') })) };
       }
       return x;
     });
@@ -749,6 +740,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   function saveDay(key, data) {
     const empty = isEmptyDay(data);
     if (empty) delete days[key]; else days[key] = cleanDay(data);
+    libCache = null;
     if (!local.save(days)) setStatus('error', '이 기기에 저장하지 못했어요');
     render();
     if (window.cloud && window.cloud.live) window.cloud.push(key, empty ? null : days[key]);
@@ -762,7 +754,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     clearUnsynced() { unsynced.clear(); local.put('unsynced', []); },
     syncedHouse: () => local.get('house', null),
     setSyncedHouse: (code) => local.put('house', code),
-    setDays(next) { days = next; local.save(days); render(); },
+    setDays(next) { days = next; libCache = null; local.save(days); render(); },
     refresh: () => { renderAccount(); bookStateChanged(); },
   };
 
@@ -774,11 +766,19 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     for (const k of kids) if (k !== null && k !== undefined && k !== false) n.append(k);
     return n;
   }
+  // Pieces shared by the sheets: a message line, a spinner line, and "log in first" with its button.
+  const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
+  const loadingRow = (...text) => el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), ...text);
+  function loginRows(text, closeSheet) {
+    const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
+    go.addEventListener('click', () => { closeSheet(); openAcct(); });
+    return [msg(text), el('div', { class: 'acct-row' }, go)];
+  }
 
   function renderItem(it, key, meal, kidFirst) {
     const li = el('li', { class: 'item' + (it.kid ? ' kid' : '') + (kidFirst ? ' kid-first' : '') });
     let main;
-    if (it.url) {
+    if (isWebLink(it.url)) {
       const p = platform(it.url);
       main = el('a', { class: 'item-main', href: it.url, target: '_blank', rel: 'noopener noreferrer', title: `${PLATFORM_NAME[p]}에서 열기` });
       main.insertAdjacentHTML('beforeend', ICONS[p]);
@@ -869,7 +869,11 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   // Built from the plan itself, so it syncs like the plan. A name typed again brings back the
   // menu's last link and the 재료 found for it.
   const normName = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+  // Built once and reused until the plan changes (saveDay / setDays clear it): typing calls it on every key.
+  // Callers must not change the entries.
+  let libCache = null;
   function menuLibrary() {
+    if (libCache) return libCache;
     const lib = new Map();
     for (const key of Object.keys(days).sort()) {
       for (const m of MEALS) {
@@ -878,17 +882,18 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
           if (!k) continue;
           const e = lib.get(k) || { name: it.text, url: '', ing: null, count: 0, last: key, meal: m.key };
           e.name = it.text; e.count++; e.last = key; e.meal = m.key; e.kid = !!it.kid;
-          if (it.url) e.url = it.url;
+          // A new link means new 재료: the ones found for the old link no longer belong to it.
+          if (it.url && it.url !== e.url) { e.url = it.url; e.ing = null; }
           if (it.ing && it.ing.list && it.ing.list.length && (!it.url || it.url === e.url)) e.ing = it.ing;
           lib.set(k, e);
         }
       }
     }
-    return lib;
+    return (libCache = lib);
   }
   const remembered = (name) => menuLibrary().get(normName(name)) || null;
 
-  // Adding: an 어른 메뉴 and an 아이 메뉴 can be written together. Editing one menu: one name, with 어른/아이.
+  // The add/edit sheet has an 어른 메뉴 and a 아이 메뉴 field (see openEditor).
   const fKid = document.getElementById('f-kid');
   const fKidUrl = document.getElementById('f-kid-url');
   const fKidUrlField = document.getElementById('f-kid-url-field');
@@ -919,8 +924,13 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     note.hidden = false;
     note.replaceChildren(el('b', null, `재료 ${ing.list.length}개`), ': ', ing.list.map((x) => x.name).join(', '), ' ', drop);
   }
+  // 저장 waits while a photo is still being read, so its 재료 can't be lost.
+  const photoReading = () => photoParts.adult.btn.disabled || photoParts.kid.btn.disabled;
+  const saveBtn = form.querySelector('button[type="submit"]');
+  const syncSaveBtn = () => { saveBtn.disabled = photoReading(); };
   function resetPhotoIng() {
     for (const which of ['adult', 'kid']) { photoIng[which] = null; photoSeq[which]++; photoParts[which].btn.disabled = false; showPhotoIng(which); }
+    syncSaveBtn();
   }
   for (const which of ['adult', 'kid']) {
     const { btn, input } = photoParts[which];
@@ -931,18 +941,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       if (!file) return;
       const seq = ++photoSeq[which];
       btn.disabled = true;
+      syncSaveBtn();
       showPhotoIng(which, '글자 읽기를 준비하고 있어요…');
       try {
         const text = await readPhoto(file, (m) => {
-          if (seq !== photoSeq[which]) return;
-          const pct = Math.round((m.progress || 0) * 100);
-          photoParts[which].note.textContent = m.status === 'recognizing text' ? `사진의 글자를 읽고 있어요… ${pct}%`
-            : /traineddata/.test(m.status || '') ? `처음 한 번만 한국어 글자 데이터를 내려받고 있어요… ${pct}%`
-            : '글자 읽기를 준비하고 있어요…';
+          if (seq === photoSeq[which]) photoParts[which].note.textContent = ocrStatus(m);
         });
         if (seq !== photoSeq[which]) return;
         const list = parseIngredients(text);
-        photoIng[which] = list.length ? { dish: '', src: true, kind: 'photo', list } : null;
+        photoIng[which] = list.length ? { list } : null;
         if (list.length) showPhotoIng(which);
         else showPhotoIng(which, text ? "사진에서 '재료' 목록을 찾지 못했어요. 재료 부분이 잘 보이게 찍거나 캡처해서 다시 해 주세요."
           : '사진에서 글자를 읽지 못했어요. 글자가 크고 선명한 사진이나 캡처 화면으로 다시 해 주세요.', true);
@@ -950,7 +957,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
         console.warn(err);
         if (seq === photoSeq[which]) showPhotoIng(which, '글자 읽기 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.', true);
       }
-      if (seq === photoSeq[which]) btn.disabled = false;
+      if (seq === photoSeq[which]) { btn.disabled = false; syncSaveBtn(); }
     });
   }
 
@@ -1084,7 +1091,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!editing) return;
+    if (!editing || photoReading()) return;
     const meal = form.elements.meal.value || editing.meal;
     const prepared = (k) => {
       const day = clone(days[k]);
@@ -1177,19 +1184,40 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     saveDay(key, day);
   });
   document.getElementById('f-cancel').addEventListener('click', closeEditor);
-  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeEditor(); });
+  // Every window closes by tapping outside it or with Escape (the first open one, in the order registered).
+  const closers = new Map();
+  function closable(backdrop, close) {
+    closers.set(backdrop, close);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  }
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!sheet.hidden) closeEditor(); else if (!shop.hidden) closeShop();
-    else if (!useup.hidden) closeUseUp(); else if (!gatherEl.hidden) closeGather();
-    else if (!bookEl.hidden) closeBook(); else if (!acct.hidden) closeAcct();
+    for (const [backdrop, close] of closers) if (!backdrop.hidden) { close(); return; }
   });
+  closable(sheet, closeEditor);
 
   /* ---------- 장보기: 재료 from the menu's link into the 장보기 app (no AI, no cost) ---------- */
-  // Browsers can't read Notion/YouTube/Instagram pages from here, so a small free server fetches the text;
-  // the 재료 list is then found by the rules in parseIngredients below. With READER_URL empty, link reading
-  // is skipped and pasting a recipe or typing 재료 still works.
-  const READER_URL = 'https://weekly-meals-reader.weekly-meals-reader.workers.dev/read';
+  // Browsers can't read Notion/YouTube/Instagram pages from here, so a small free server (worker/) fetches
+  // the text; the 재료 list is then found by the rules in parseIngredients below.
+  const READER = 'https://weekly-meals-reader.weekly-meals-reader.workers.dev';
+  // One call to that server, signed with the sign-in token. Gives up after 25 s so a stuck page can't
+  // leave a spinner running. Resolves { ok, status, data }; rejects when offline or timed out.
+  async function callReader(path, url) {
+    const token = await window.cloud.idToken();
+    const stop = new AbortController();
+    const timer = setTimeout(() => stop.abort(), 25000);
+    try {
+      const r = await fetch(READER + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ url }),
+        signal: stop.signal,
+      });
+      return { ok: r.ok, status: r.status, data: await r.json().catch(() => null) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   const AMOUNT_WORDS = '약간|적당량|적당히|조금|한\\s?줌|한\\s?꼬집|반\\s?개|반\\s?모|반\\s?컵|취향껏|넉넉히|기호에\\s?따라|취향에\\s?따라|기호껏|간\\s?맞추기|간\\s?맞춤';
   const AMOUNTISH = new RegExp(`^(약\\s*)?([0-9½¼¾⅓⅔⅛]|${AMOUNT_WORDS})`, 'u');
@@ -1301,7 +1329,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   let shopSeq = 0;
 
   const canAddToShopping = () => !!(window.cloud && window.cloud.live);
-  const canReadLinks = () => !!(READER_URL && canAddToShopping());
+  const canReadLinks = () => canAddToShopping();
   const ownedNames = () => (window.cloud && window.cloud.shoppingNames ? window.cloud.shoppingNames() : new Set());
   function setList(list, note) {
     const have = ownedNames();
@@ -1324,7 +1352,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     document.documentElement.style.overflow = 'hidden';
     if (ing) setList(ing.list, 'saved');
     else if (url && canReadLinks()) readFromLink();
-    else setList([], !url ? 'no-link' : !READER_URL ? 'no-reader' : 'login-read');
+    else setList([], !url ? 'no-link' : 'login-read');
   }
   function closeShop() {
     shopSeq++;
@@ -1334,7 +1362,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     shopping = null;
   }
   document.getElementById('shop-close').addEventListener('click', closeShop);
-  shop.addEventListener('click', (e) => { if (e.target === shop) closeShop(); });
+  closable(shop, closeShop);
   shopRetry.addEventListener('click', () => readFromLink());
 
   async function readFromLink() {
@@ -1342,15 +1370,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const seq = ++shopSeq;
     renderShop('loading');
     try {
-      const token = await window.cloud.idToken();
-      const r = await fetch(READER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ url: shopping.url }),
-      });
-      const data = await r.json().catch(() => ({}));
+      const { ok, status, data } = await callReader('/read', shopping.url);
       if (seq !== shopSeq || !shopping) return;
-      if (!r.ok) { setList(shopping.list, r.status === 401 ? 'expired' : 'read-failed'); return; }
+      if (!ok || !data) { setList(shopping.list, status === 401 ? 'expired' : 'read-failed'); return; }
       const found = parseIngredients(data.text);
       if (found.length) setList(found, 'found');
       else setList(shopping.list, !data.read ? (data.kind === 'instagram' ? 'insta-blocked' : 'read-failed') : 'no-section');
@@ -1372,7 +1394,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     offline: ['인터넷 연결을 확인해 주세요. 재료를 직접 적을 수도 있어요.', 'warn'],
     expired: ['로그인이 만료됐어요. 로그아웃했다가 다시 로그인해 주세요.', 'warn'],
     'no-link': ['레시피 글을 붙여넣거나 재료를 직접 적어 주세요.', ''],
-    'no-reader': ['링크 읽기는 아직 준비 중이에요. 레시피 글을 붙여넣거나 재료를 직접 적어 주세요.', ''],
     'login-read': ['로그인하면 링크에서 재료를 찾아 드려요. 지금은 글을 붙여넣거나 재료를 직접 적어 주세요.', ''],
     manual: ['필요 없는 재료는 체크를 빼 주세요.', ''],
     photo: ['사진에서 재료 {n}개를 찾았어요. 글자가 틀렸으면 아래 읽은 글을 고치고 다시 찾아 주세요.', ''],
@@ -1402,6 +1423,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       // Korean + English data are downloaded once, then kept by the browser.
       ocrWorker = loadTesseract()
         .then((T) => T.createWorker(['kor', 'eng'], 1, { logger: (m) => ocrProgress(m) }))
+        // Automatic page layout for every first read; readPhoto may retry one picture as a single block.
+        .then(async (w) => { await w.setParameters({ tessedit_pageseg_mode: '3' }); return w; })
         .catch((e) => { ocrWorker = null; throw e; });
     }
     return ocrWorker;
@@ -1412,11 +1435,14 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   async function prepareImage(file) {
     let bmp;
     try { bmp = await createImageBitmap(file); } catch { return file; }
-    const scale = bmp.width < 1500 ? Math.min(3, 1500 / bmp.width) : Math.min(1, 2000 / bmp.width);
+    let scale = bmp.width < 1500 ? Math.min(3, 1500 / bmp.width) : Math.min(1, 2000 / bmp.width);
+    // Phones can't draw canvases much over 16 million pixels (a long stitched screenshot would fail).
+    scale = Math.min(scale, Math.sqrt(16e6 / (bmp.width * bmp.height)));
     const c = document.createElement('canvas');
     c.width = Math.round(bmp.width * scale);
     c.height = Math.round(bmp.height * scale);
     const g = c.getContext('2d', { willReadFrequently: true });
+    if (!g) { if (bmp.close) bmp.close(); return file; }
     g.imageSmoothingQuality = 'high';
     g.drawImage(bmp, 0, 0, c.width, c.height);
     if (bmp.close) bmp.close();
@@ -1436,7 +1462,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     return String(text).split('\n').map((line) => {
       let l = line;
       // Spaced-out syllables: "김 치 찌 개" or "< 만 들 기 >"
-      l = l.replace(/(?:(?<=^|[\s<(\[])[가-힣]\s+){2,}[가-힣](?=$|[\s>)\]])/g, (m) => m.replace(/\s+/g, ''));
+      // (no lookbehind: Safari before iOS 16.4 can't parse it, and the whole script would fail to load)
+      l = l.replace(/(^|[\s<(\[])((?:[가-힣]\s+){2,}[가-힣])(?=$|[\s>)\]])/g, (_, pre, run) => pre + run.replace(/\s+/g, ''));
       // Arrows and bullets read as letters before a heading: "ㄷㄷ 소스:", "또 재료:", "= 재료:"
       l = l.replace(/^\s*\S{1,3}\s+(?=(주\s*재료|부\s*재료|재료|양념\s*장?|소스|드레싱)\s*[:：])/, '');
       // Units: "g" read as 9 or 6 ("2006" → "200g", "56" → "5g"), "T" read as 7 or ㅠ ("37" → "3T", "1ㅠ" → "1T"),
@@ -1468,6 +1495,13 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     return fixOcrText(data.text || '');
   }
   window.readPhoto = readPhoto; // handy for checking an image in the console
+  // Progress line while a photo is read (Tesseract's logger messages).
+  function ocrStatus(m) {
+    const pct = Math.round((m.progress || 0) * 100);
+    return m.status === 'recognizing text' ? `사진의 글자를 읽고 있어요… ${pct}%`
+      : /traineddata/.test(m.status || '') ? `처음 한 번만 한국어 글자 데이터를 내려받고 있어요… ${pct}%`
+      : '글자 읽기를 준비하고 있어요…';
+  }
 
   async function readRecipePhoto(file) {
     if (!shopping) return;
@@ -1475,13 +1509,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     renderShop('ocr');
     try {
       const text = await readPhoto(file, (m) => {
-        if (seq !== shopSeq) return;
         const line = document.getElementById('ocr-status');
-        if (!line) return;
-        const pct = Math.round((m.progress || 0) * 100);
-        line.textContent = m.status === 'recognizing text' ? `글자를 읽고 있어요… ${pct}%`
-          : /traineddata/.test(m.status || '') ? `처음 한 번만 한국어 글자 데이터를 내려받고 있어요… ${pct}%`
-          : '글자 읽기를 준비하고 있어요…';
+        if (seq === shopSeq && line) line.textContent = ocrStatus(m);
       });
       if (seq !== shopSeq || !shopping) return;
       shopping.pasteText = text;
@@ -1498,18 +1527,16 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   function renderShop(state) {
     if (!shopping) return;
-    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
     shopBody.replaceChildren();
     shopAdd.hidden = true;
     shopRetry.hidden = true;
 
     if (state === 'ocr') {
-      shopBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }),
-        el('span', { id: 'ocr-status' }, '글자 읽기를 준비하고 있어요…')));
+      shopBody.append(loadingRow(el('span', { id: 'ocr-status' }, '글자 읽기를 준비하고 있어요…')));
       return;
     }
     if (state === 'loading') {
-      shopBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), '링크를 읽고 있어요…'));
+      shopBody.append(loadingRow('링크를 읽고 있어요…'));
       return;
     }
     if (state === 'done') {
@@ -1582,9 +1609,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     shopBody.append(details);
 
     if (!canAddToShopping()) {
-      const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
-      go.addEventListener('click', () => { closeShop(); openAcct(); });
-      shopBody.append(msg('장보기 앱에 넣으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+      shopBody.append(...loginRows('장보기 앱에 넣으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.', closeShop));
     } else {
       shopAdd.hidden = false;
       updateShopCount();
@@ -1612,7 +1637,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const day = clone(days[shopping.key]);
     const target = (day[shopping.meal] || []).find((x) => x.id === shopping.id);
     if (target) {
-      target.ing = { dish: '', src: true, kind: '', list: shopping.list.map((x) => ({ name: x.name, amount: x.amount })) };
+      target.ing = { list: shopping.list.map((x) => ({ name: x.name, amount: x.amount })) };
       target.shopped = true;
       saveDay(shopping.key, day);
     }
@@ -1624,7 +1649,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   /* ---------- 레시피북: a public Notion recipe database, grouped by its 분류 ---------- */
   // The book's link is kept in the household (shared with the family) or, signed out, on this device;
   // the last list read is kept here too, so the book opens at once and refreshes behind.
-  const BOOK_URL = READER_URL.replace(/\/read$/, '/book');
   const bookEl = document.getElementById('book');
   const bookBody = document.getElementById('book-body');
   const bookChange = document.getElementById('book-change');
@@ -1647,7 +1671,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   }
   document.getElementById('book-open').addEventListener('click', openBook);
   document.getElementById('book-close').addEventListener('click', closeBook);
-  bookEl.addEventListener('click', (e) => { if (e.target === bookEl) closeBook(); });
+  closable(bookEl, closeBook);
   bookChange.addEventListener('click', () => { bookEditing = true; renderBook(); });
 
   async function refreshBook(force) {
@@ -1657,19 +1681,13 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     bookLoading = true; bookError = '';
     renderBook();
     try {
-      const token = await window.cloud.idToken();
-      const r = await fetch(BOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ url }),
-      });
-      const data = await r.json().catch(() => null);
-      if (r.ok && data && data.books && data.books.length) {
+      const { ok, status, data } = await callReader('/book', url);
+      if (ok && data && data.books && data.books.length) {
         bookData = { url, at: Date.now(), data };
         local.put('book-data', bookData);
       } else {
-        bookError = r.status === 401 ? '로그인이 만료됐어요. 로그아웃했다가 다시 로그인해 주세요.'
-          : r.ok ? '이 페이지에서 레시피 데이터베이스를 찾지 못했어요. 레시피 목록이 있는 페이지 링크인지 확인해 주세요.'
+        bookError = status === 401 ? '로그인이 만료됐어요. 로그아웃했다가 다시 로그인해 주세요.'
+          : ok ? '이 페이지에서 레시피 데이터베이스를 찾지 못했어요. 레시피 목록이 있는 페이지 링크인지 확인해 주세요.'
           : '레시피북을 읽지 못했어요. 노션에서 페이지가 웹에 공개되어 있는지 확인해 주세요.';
       }
     } catch (err) {
@@ -1677,6 +1695,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       bookError = '인터넷 연결을 확인하고 다시 열어 주세요.';
     }
     bookLoading = false;
+    // The link was changed while this one was being read: read the new one.
+    if (bookUrl() !== url) { refreshBook(true); return; }
     if (bookOpen) renderBook();
   }
 
@@ -1691,11 +1711,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   function renderBook() {
     if (!bookOpen) return;
-    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
     const sub = document.getElementById('book-sub');
-    bookBody.replaceChildren();
+    // Redrawing after the background refresh keeps the search box itself, so the keyboard stays open
+    // and Korean being typed isn't cut off.
+    const keep = bookBody.querySelector('#book-q');
+    for (const n of [...bookBody.childNodes]) if (n !== keep) n.remove();
     const url = bookUrl();
     bookChange.hidden = !url || bookEditing;
+    const data = url && !bookEditing && bookData && bookData.url === url ? bookData.data : null;
+    if (!data && keep) keep.remove();
 
     if (!url || bookEditing) {
       sub.textContent = '노션의 레시피 목록을 분류대로 보여드려요.';
@@ -1713,18 +1737,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       return;
     }
 
-    const data = bookData && bookData.url === url ? bookData.data : null;
     if (!data) {
       if (!canReadLinks()) {
-        const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
-        go.addEventListener('click', () => { closeBook(); openAcct(); });
-        bookBody.append(msg('레시피북을 읽으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+        bookBody.append(...loginRows('레시피북을 읽으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.', closeBook));
       } else if (bookError) {
         const again = el('button', { class: 'btn line', type: 'button' }, '다시 읽기');
         again.addEventListener('click', () => refreshBook(true));
         bookBody.append(msg(bookError, 'err'), el('div', { class: 'acct-row' }, again));
       } else {
-        bookBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), '레시피북을 읽고 있어요…'));
+        bookBody.append(loadingRow('레시피북을 읽고 있어요…'));
       }
       sub.textContent = '';
       return;
@@ -1735,17 +1756,21 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const order = [...new Set([...data.books.flatMap((b) => b.categories), ...recipes.map((r) => r.category || '분류 없음')])]
       .filter((c) => recipes.some((r) => (r.category || '분류 없음') === c));
     sub.textContent = `${data.title || '레시피북'} · 레시피 ${recipes.length}개${bookLoading ? ' · 새로 읽는 중…' : ''}`;
-    if (bookError) bookBody.append(msg(bookError + ' (전에 읽은 목록을 보여드려요)', 'warn'));
+    if (bookError) {
+      const warn = msg(bookError + ' (전에 읽은 목록을 보여드려요)', 'warn');
+      if (keep) keep.before(warn); else bookBody.append(warn);
+    }
 
-    const search = el('input', { type: 'search', class: 'book-search', id: 'book-q', placeholder: '레시피 검색', 'aria-label': '레시피 검색', autocomplete: 'off', enterkeyhint: 'search' });
-    search.value = bookQuery;
-    search.addEventListener('input', () => { bookQuery = search.value; filterBook(); });
+    let search = keep;
+    if (!search) {
+      search = el('input', { type: 'search', class: 'book-search', id: 'book-q', placeholder: '레시피 검색', 'aria-label': '레시피 검색', autocomplete: 'off', enterkeyhint: 'search' });
+      search.value = bookQuery;
+      search.addEventListener('input', () => { bookQuery = search.value; filterBook(); });
+      bookBody.append(search);
+    }
     // 추천: the menus planned most often (book recipes and other menus alike), most frequent first.
-    const hexOf = (u) => ((String(u || '').replace(/-/g, '').match(/[0-9a-f]{32}/i) || [])[0] || '').toLowerCase();
-    const byHex = new Map(recipes.map((r) => [hexOf(r.url), r]));
-    const byName = new Map(recipes.map((r) => [normName(r.title), r]));
     const favorites = [...menuLibrary().values()]
-      .map((e) => ({ e, r: (hexOf(e.url) && byHex.get(hexOf(e.url))) || byName.get(normName(e.name)) || null }))
+      .map((e) => ({ e, r: bookRecipeFor(e.name, e.url) }))
       .sort((a, b) => b.e.count - a.e.count || (a.e.last < b.e.last ? 1 : -1))
       .slice(0, 20);
 
@@ -1761,14 +1786,14 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       });
       cats.append(chip);
     }
-    bookBody.append(search, cats);
+    bookBody.append(cats);
 
     // One row: the name (opens Notion or the menu's link), a meta line, and 식단에 넣기.
     const row = ({ title, href, metaParts, link, prefill }) => {
       const meta = el('span', { class: 'book-meta' });
       for (const part of metaParts) if (part) meta.append(el('span', null, part));
       if (link) meta.insertAdjacentHTML('beforeend', ICONS[platform(link)]);
-      const main = href
+      const main = isWebLink(href)
         ? el('a', { class: 'book-main', href, target: '_blank', rel: 'noopener noreferrer', title: '열기' }, el('span', { class: 'book-name' }, title), meta)
         : el('span', { class: 'book-main' }, el('span', { class: 'book-name' }, title), meta);
       const add = el('button', { class: 'btn line', type: 'button' }, '식단에 넣기');
@@ -1789,7 +1814,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
         title: e.name,
         href: (r && r.url) || e.url || '',
         metaParts: [`${e.count}번`, `마지막 ${last.getMonth() + 1}/${last.getDate()}`, r && r.time ? `${r.time}분` : '', r && r.level, e.kid ? '아이' : ''],
-        link: r ? r.link : (e.url && !hexOf(e.url) ? e.url : ''),
+        link: r ? r.link : (e.url && !notionId(e.url) ? e.url : ''),
         prefill: { text: e.name, url: e.url || (r && r.url) || '', kid: e.kid || (r ? isKidCategory(r.category) : false) },
       }));
     }
@@ -1843,15 +1868,10 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   }
 
   /* ---------- reading 재료 from a link (shared by 남은 재료 and 모아서 장보기) ---------- */
-  async function readLinkIngredients(url, token) {
-    const r = await fetch(READER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ url }),
-    });
-    if (!r.ok) throw new Error('read ' + r.status);
-    const data = await r.json();
-    return { list: parseIngredients(data.text), kind: data.kind || '' };
+  async function readLinkIngredients(url) {
+    const { ok, status, data } = await callReader('/read', url);
+    if (!ok || !data) throw new Error('read ' + status);
+    return { list: parseIngredients(data.text) };
   }
   // Runs jobs three at a time.
   async function inBatches(items, job) {
@@ -1859,11 +1879,11 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     await Promise.all([0, 1, 2].map(async () => { while (queue.length) await job(queue.shift()); }));
   }
   // Keeps 재료 on a menu's entry in the plan, where 메뉴 기억 and 🛒 find them.
-  function rememberIngredients(key, name, list, kind, url) {
+  function rememberIngredients(key, name, list, url) {
     const day = clone(days[key]);
     const target = MEALS.flatMap((m) => day[m.key] || []).reverse().find((x) => normName(x.text) === normName(name));
     if (!target) return;
-    target.ing = { dish: '', src: true, kind: kind || '', list };
+    target.ing = { list };
     if (!target.url && url) target.url = url;
     saveDay(key, day);
   }
@@ -1871,9 +1891,23 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   // 레시피북 recipes' 재료, read once and kept on this device: { [notion page id]: { list, at } }.
   // A recipe without a 재료 list is tried again after a week.
-  const notionId = (u) => ((String(u || '').replace(/-/g, '').match(/[0-9a-f]{32}/i) || [])[0] || '').toLowerCase();
   let bookIng = local.get('book-ing', {});
   const bookRecipes = () => (bookData && bookData.data ? bookData.data.books.flatMap((b) => b.recipes) : []);
+  // The book's recipes by Notion page id and by name, rebuilt only when a new list is read.
+  let bookIndexOf = null, bookIndexCache = null;
+  function bookIndex() {
+    const data = bookData && bookData.data;
+    if (bookIndexOf !== data || !bookIndexCache) {
+      const recipes = bookRecipes();
+      bookIndexOf = data;
+      bookIndexCache = { byId: new Map(recipes.map((r) => [notionId(r.url), r])), byName: new Map(recipes.map((r) => [normName(r.title), r])) };
+    }
+    return bookIndexCache;
+  }
+  const bookRecipeFor = (name, url) => {
+    const { byId, byName } = bookIndex();
+    return (notionId(url) && byId.get(notionId(url))) || byName.get(normName(name)) || null;
+  };
   const bookIngFor = (r) => {
     const c = bookIng[notionId(r.url)];
     return c && c.list && c.list.length ? c.list : null;
@@ -1886,43 +1920,41 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     '포도씨유', '참기름', '들기름', '후추', '후춧가루', '깨', '통깨', '참깨', '물엿', '올리고당', '식초', '맛술', '미림',
     'msg', '다시다', '굴소스', '케첩', '마요네즈', '물', '고춧가루', '고추가루', '다진마늘', '깨소금'].map(normName));
   const isStaple = (n) => STAPLES.has(normName(n));
-  const sameThing = (a, b) => {
-    a = normName(a); b = normName(b);
-    return a === b || (b.length >= 2 && a.includes(b)) || (a.length >= 2 && b.includes(a));
-  };
+  // Same 재료 if one name contains the other ("돼지고기 앞다리살" ~ "돼지고기"); a and b are normName keys.
+  const sameKey = (a, b) => a === b || (b.length >= 2 && a.includes(b)) || (a.length >= 2 && b.includes(a));
+  const sameThing = (a, b) => sameKey(normName(a), normName(b));
   const urgency = (left) => (left === null ? 1 : left <= 2 ? 3 : left <= 5 ? 2 : 1);
 
   // Menus planned before, plus 레시피북 recipes not planned yet (with their 재료 once read).
+  // Copies, so the shared menu memory is left as it is.
   function recommendCandidates() {
-    const lib = menuLibrary();
-    const out = [...lib.values()];
-    const planned = new Set([...lib.keys()]);
+    const out = new Map([...menuLibrary()].map(([k, e]) => [k, { ...e }]));
     for (const r of bookRecipes()) {
-      if (planned.has(normName(r.title))) {
+      const k = normName(r.title), list = bookIngFor(r), planned = out.get(k);
+      if (planned) {
         // A planned menu that is also a book recipe: use the book's 재료 if the plan has none.
-        const e = lib.get(normName(r.title));
-        const list = bookIngFor(r);
-        if (e && !e.ing && list) e.ing = { list };
-        if (e) e.book = r;
-        continue;
+        if (!planned.ing && list) planned.ing = { list };
+        planned.book = r;
+      } else if (list) {
+        out.set(k, { name: r.title, url: r.url, ing: { list }, count: 0, last: '', meal: 'dinner', kid: isKidCategory(r.category), book: r });
       }
-      const list = bookIngFor(r);
-      if (!list) continue;
-      out.push({ name: r.title, url: r.url, ing: { list }, count: 0, last: '', meal: 'dinner', kid: isKidCategory(r.category), book: r });
     }
-    return out;
+    return [...out.values()];
   }
   function recommend(stock, candidates) {
+    // Names are normalized once here; with a year of menus and a big book this runs many thousand comparisons.
+    const items = stock.map((s) => ({ s, k: normName(s.name), staple: isStaple(s.name) }));
     const out = [];
     for (const e of candidates) {
       const byName = !(e.ing && e.ing.list && e.ing.list.length);
       const names = byName ? [] : e.ing.list.map((x) => x.name);
-      const used = stock.filter((s) => (byName
-        ? normName(s.name).length >= 2 && normName(e.name).includes(normName(s.name))
-        : names.some((n) => sameThing(n, s.name))));
-      if (!used.some((s) => !isStaple(s.name))) continue;
-      const score = used.reduce((t, s) => t + (isStaple(s.name) ? 0.2 : urgency(s.left)), 0);
-      const missing = names.filter((n) => !isStaple(n) && !stock.some((s) => sameThing(n, s.name)));
+      const keys = names.map(normName);
+      const nameKey = normName(e.name);
+      const usedItems = items.filter(({ k }) => (byName ? k.length >= 2 && nameKey.includes(k) : keys.some((n) => sameKey(n, k))));
+      if (!usedItems.some((x) => !x.staple)) continue;
+      const used = usedItems.map((x) => x.s);
+      const score = usedItems.reduce((t, x) => t + (x.staple ? 0.2 : urgency(x.s.left)), 0);
+      const missing = names.filter((n, i) => !STAPLES.has(keys[i]) && !items.some(({ k }) => sameKey(keys[i], k)));
       out.push({ e, used, score, missing, byName });
     }
     return out
@@ -1948,7 +1980,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   }
   document.getElementById('useup-open').addEventListener('click', openUseUp);
   document.getElementById('useup-close').addEventListener('click', closeUseUp);
-  useup.addEventListener('click', (e) => { if (e.target === useup) closeUseUp(); });
+  closable(useup, closeUseUp);
 
   // Reads 재료 that are still unknown: planned menus with a link, and every 레시피북 recipe (once).
   async function readMissingIngredients() {
@@ -1957,8 +1989,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const weekAgo = Date.now() - 7 * 864e5;
     const recipes = bookRecipes().filter((r) => { const c = bookIng[notionId(r.url)]; return !c || (!(c.list && c.list.length) && c.at < weekAgo); });
     if (!menus.length && !recipes.length) return;
-    let token;
-    try { token = await window.cloud.idToken(); } catch { return; }
     reading = menus.length;
     bookReading = recipes.length; bookReadTotal = recipes.length;
     renderUseUp();
@@ -1967,13 +1997,13 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       if (e) {
         triedLinks.add(e.url);
         try {
-          const { list, kind } = await readLinkIngredients(e.url, token);
-          if (list.length) rememberIngredients(e.last, e.name, list, kind, e.url);
+          const { list } = await readLinkIngredients(e.url);
+          if (list.length) rememberIngredients(e.last, e.name, list, e.url);
         } catch (err) { console.warn('read', e.url, err); }
         reading--;
       } else {
         try {
-          const { list } = await readLinkIngredients(r.url, token);
+          const { list } = await readLinkIngredients(r.url);
           bookIng[notionId(r.url)] = { list, at: Date.now() };
         } catch (err) { console.warn('read', r.url, err); }
         bookReading--;
@@ -1988,12 +2018,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   function renderUseUp() {
     if (!useupOpen) return;
-    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
     useupBody.replaceChildren();
     if (!canAddToShopping()) {
-      const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
-      go.addEventListener('click', () => { closeUseUp(); openAcct(); });
-      useupBody.append(msg('장보기 앱의 남은 재료를 보려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+      useupBody.append(...loginRows('장보기 앱의 남은 재료를 보려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.', closeUseUp));
       return;
     }
     const today = new Date();
@@ -2030,7 +2057,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       const what = bookReading > 0
         ? `레시피북 레시피의 재료를 읽고 있어요… ${bookReadTotal - bookReading} / ${bookReadTotal} (처음 한 번만 걸려요)`
         : `메뉴 링크 ${reading}개에서 재료를 읽고 있어요…`;
-      useupBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), what));
+      useupBody.append(loadingRow(what));
     }
 
     const recs = recommend(stock, recommendCandidates());
@@ -2080,7 +2107,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     if (it.ing && it.ing.list && it.ing.list.length) return it.ing.list;
     const memo = lib.get(normName(it.text));
     if (memo && memo.ing && (!it.url || memo.url === it.url)) return memo.ing.list;
-    const book = bookRecipes().find((r) => (it.url && notionId(it.url) && notionId(it.url) === notionId(r.url)) || normName(r.title) === normName(it.text));
+    const book = bookRecipeFor(it.text, it.url);
     return book ? bookIngFor(book) : null;
   }
   const linkOf = (it, lib) => it.url || ((lib.get(normName(it.text)) || {}).url) || '';
@@ -2105,7 +2132,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   }
   document.getElementById('gather-open').addEventListener('click', openGather);
   document.getElementById('gather-close').addEventListener('click', closeGather);
-  gatherEl.addEventListener('click', (e) => { if (e.target === gatherEl) closeGather(); });
+  closable(gatherEl, closeGather);
 
   // Menus on the chosen days with a link but no 재료 yet: read them and remember the result.
   async function readGatherMissing() {
@@ -2113,16 +2140,14 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const lib = menuLibrary();
     const todo = menusOn([...gatherDays]).filter(({ it }) => !ingredientsOf(it, lib) && linkOf(it, lib) && !triedLinks.has(linkOf(it, lib)));
     if (!todo.length) return;
-    let token;
-    try { token = await window.cloud.idToken(); } catch { return; }
     gatherReading = todo.length;
     renderGather();
     await inBatches(todo, async ({ key, it }) => {
       const url = linkOf(it, lib);
       triedLinks.add(url);
       try {
-        const { list, kind } = await readLinkIngredients(url, token);
-        if (list.length) rememberIngredients(key, it.text, list, kind, url);
+        const { list } = await readLinkIngredients(url);
+        if (list.length) rememberIngredients(key, it.text, list, url);
       } catch (err) { console.warn('read', url, err); }
       gatherReading--;
       if (gatherOpen) renderGather();
@@ -2161,7 +2186,6 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   function renderGather() {
     if (!gatherOpen) return;
-    const msg = (text, cls) => el('p', { class: 'shop-msg' + (cls ? ' ' + cls : '') }, text);
     gatherBody.replaceChildren();
     gatherAdd.hidden = true;
 
@@ -2199,7 +2223,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       gatherBody.append(el('label', { class: 'g-toggle', for: 'g-shopped' }, box, `이미 장 본 메뉴 ${shoppedCount}개도 넣기`));
     }
     if (gatherReading > 0) {
-      gatherBody.append(el('div', { class: 'shop-loading', role: 'status' }, el('span', { class: 'spinner' }), `메뉴 링크 ${gatherReading}개에서 재료를 읽고 있어요…`));
+      gatherBody.append(loadingRow(`메뉴 링크 ${gatherReading}개에서 재료를 읽고 있어요…`));
     }
     if (known.length) gatherBody.append(msg(`메뉴 ${known.length}개의 재료예요: ${known.map((m) => (m.it.kid ? '아이 ' : '') + m.it.text).join(', ')}`));
     if (unknown.length && gatherReading <= 0) {
@@ -2225,20 +2249,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     gatherBody.append(ul);
 
     if (!canAddToShopping()) {
-      const go = el('button', { class: 'btn line', type: 'button' }, '로그인하기');
-      go.addEventListener('click', () => { closeGather(); openAcct(); });
-      gatherBody.append(msg('장보기 앱에 넣으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.'), el('div', { class: 'acct-row' }, go));
+      gatherBody.append(...loginRows('장보기 앱에 넣으려면 오른쪽 위 사람 아이콘에서 구글로 로그인해 주세요.', closeGather));
       return;
     }
     gatherAdd.hidden = false;
     gatherAdd.onclick = () => {
       const picks = items.filter((x) => x.on);
       if (!picks.length) return;
-      const note = (e) => {
-        const menus = e.menus.length > 2 ? `${e.menus.slice(0, 2).join('·')} 외 ${e.menus.length - 2}` : e.menus.join('·');
-        return [menus, e.amounts.join('+')].filter(Boolean).join(' · ');
-      };
-      gatherAdded = window.cloud.addToShopping(picks.map((e) => ({ name: e.name, note: note(e) })));
+      // The 장보기 memo holds only the amount, like the single-menu 🛒 (no menu names).
+      gatherAdded = window.cloud.addToShopping(picks.map((e) => ({ name: e.name, note: e.amounts.join(' + ') })));
       // Mark the menus whose 재료 were gathered as shopped.
       const byDay = new Map();
       for (const m of known) { if (!byDay.has(m.key)) byDay.set(m.key, new Set()); byDay.get(m.key).add(m.it.id); }
@@ -2266,7 +2285,7 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   document.getElementById('acct-open').addEventListener('click', openAcct);
   statusEl.addEventListener('click', openAcct);
   document.getElementById('acct-close').addEventListener('click', closeAcct);
-  acct.addEventListener('click', (e) => { if (e.target === acct) closeAcct(); });
+  closable(acct, closeAcct);
 
   function renderAccount() {
     const c = window.cloud;
@@ -2364,16 +2383,23 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
 
   render();
   renderAccount();
-  // 오프라인 기능 + 새 버전 바로 적용: sw.js 는 저장본을 쓰지 않음, 앱으로 돌아올 때 새 버전 확인,
-  // 새 버전이 자리 잡으면 한 번 새로 고침.
+  // 오프라인 기능 + 새 버전 바로 적용: sw.js 파일은 브라우저 캐시를 거치지 않고 받고, 앱으로 돌아올 때 새 버전 확인,
+  // 새 버전이 자리 잡으면 창이 닫혀 있고 입력 중이 아닐 때 한 번 새로 고침.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const hadController = !!navigator.serviceWorker.controller;
-    let reloading = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!hadController || reloading) return;
+    let reloading = false, waiting = 0;
+    // A new version is in: reload, but never while a window is open or something is being typed —
+    // wait until that's done (or the app goes to the background).
+    const busy = () => [...document.querySelectorAll('.backdrop')].some((b) => !b.hidden)
+      || (document.activeElement && document.activeElement.matches('input, textarea'));
+    const reloadWhenFree = () => {
+      if (reloading) return;
+      if (busy() && !document.hidden) { if (!waiting) waiting = setInterval(reloadWhenFree, 3000); return; }
+      clearInterval(waiting);
       reloading = true;
       location.reload();
-    });
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) reloadWhenFree(); });
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
       document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
     }).catch(() => {});
@@ -2411,7 +2437,10 @@ if (cfg && M) {
 
     function stop() { if (unsub) unsub(); unsub = null; cloud.live = false; }
     // Earlier versions wrote "메뉴 이름 · 양" into the 장보기 memo. Take the menu's name out again, keep the amount.
+    // Once per household on this device: later it would also cut memos people typed that match a menu name.
     function dropMenuNames(meals) {
+      const flag = 'yolk-meals-v1:notes-cleaned';
+      try { if (localStorage.getItem(flag) === cloud.house) return; localStorage.setItem(flag, cloud.house); } catch { return; }
       const menus = new Set(), args = [];
       for (const day of Object.values(meals)) for (const list of Object.values(day || {})) {
         if (Array.isArray(list)) for (const it of list) if (it && it.text) menus.add(it.text);
@@ -2425,24 +2454,30 @@ if (cfg && M) {
       }
       if (args.length) F.updateDoc(house(), ...args).then(ok, fail);
     }
+    let retryTimer = 0, retries = 0;
     function listen() {
       stop();
+      clearTimeout(retryTimer);
       let first = true;
       unsub = F.onSnapshot(house(), (snap) => {
         if (!snap.exists()) return;
-        shopItems = snap.data().items || {};
-        stockItems = snap.data().stock || {};
-        cloud.recipeBook = snap.data().recipeBook || ''; // 레시피북 link, shared with the family
-        const remote = JSON.parse(JSON.stringify(snap.data().meals || {}));
+        retries = 0;
+        const data = snap.data(); // a fresh copy each call, so it can be changed below
+        shopItems = data.items || {};
+        stockItems = data.stock || {};
+        cloud.recipeBook = data.recipeBook || ''; // 레시피북 link, shared with the family
+        const remote = data.meals || {};
         if (first) {
           first = false;
-          // First contact with this household on this device: add the days only this device has.
+          // First contact with any household on this device: add the days only this device has (planned
+          // before signing in). Moving to another household: don't carry the old family's plan over.
           // Afterwards: send only the days changed while not connected.
-          const mine = M.days(), firstTime = M.syncedHouse() !== cloud.house, args = [];
+          const mine = M.days(), synced = M.syncedHouse(), args = [];
+          const firstEver = !synced, sameHouse = synced === cloud.house;
           for (const k of Object.keys(mine)) {
-            if ((firstTime && !remote[k]) || M.unsynced.has(k)) { args.push(field(k), mine[k]); remote[k] = mine[k]; }
+            if ((firstEver && !remote[k]) || (sameHouse && M.unsynced.has(k))) { args.push(field(k), mine[k]); remote[k] = mine[k]; }
           }
-          for (const k of M.unsynced) if (!mine[k] && remote[k]) { args.push(field(k), F.deleteField()); delete remote[k]; }
+          if (sameHouse) for (const k of M.unsynced) if (!mine[k] && remote[k]) { args.push(field(k), F.deleteField()); delete remote[k]; }
           M.clearUnsynced();
           M.setSyncedHouse(cloud.house);
           if (args.length) F.updateDoc(house(), ...args).then(ok, fail);
@@ -2451,7 +2486,12 @@ if (cfg && M) {
         M.setDays(remote);
         M.refresh();
         dropMenuNames(remote);
-      }, (e) => { stop(); fail(e); });
+      }, (e) => {
+        stop();
+        fail(e);
+        // Try again after a while (10 s, 20 s, … up to 2 min) instead of staying disconnected until a reload.
+        retryTimer = setTimeout(() => { if (cloud.user && cloud.house) listen(); }, Math.min(120, 10 * ++retries) * 1000);
+      });
     }
     async function link(code) {
       cloud.house = code;
@@ -2482,7 +2522,7 @@ if (cfg && M) {
       return args.length / 2;
     };
     cloud.signIn = () => A.signInWithPopup(auth, new A.GoogleAuthProvider());
-    cloud.signOut = async () => { stop(); cloud.house = null; await A.signOut(auth); };
+    cloud.signOut = async () => { clearTimeout(retryTimer); stop(); cloud.house = null; await A.signOut(auth); };
     cloud.create = async () => {
       const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       const code = [...crypto.getRandomValues(new Uint8Array(10))].map((n) => abc[n % abc.length]).join('');
