@@ -101,6 +101,16 @@ button { cursor: pointer; }
   .weeknav { grid-area: nav; }
   .weeknav .range { flex: 1; min-width: 0; }
   .today-btn { margin-left: 2px; }
+  .brand h1, .range strong { white-space: nowrap; }
+}
+/* Very narrow phones (iPhone SE and the like): a bit smaller so the title and dates stay on one line. */
+@media (max-width: 360px) {
+  .brand { gap: 7px; }
+  .brand h1 { font-size: 22px; }
+  .logo { width: 32px; height: 32px; }
+  .top-inner .navbtn { width: 33px; height: 33px; }
+  .range strong { font-size: 16.5px; }
+  .today-btn { padding: 0 10px; height: 33px; }
 }
 .brand h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; letter-spacing: -.01em; line-height: 1; }
 .logo { width: 38px; height: 38px; flex: none; }
@@ -797,12 +807,23 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     return li;
   }
 
+  // The 7-day range in the header: "11월 30일 – 12월 6일", or "11/30 – 12/6" when that doesn't fit (small phones).
+  const rangeLabel = document.getElementById('range-label');
+  let rangeTexts = ['', ''];
+  function setRangeLabel(long, short) {
+    if (long) rangeTexts = [long, short];
+    rangeLabel.textContent = rangeTexts[0];
+    if (rangeLabel.scrollWidth > rangeLabel.parentElement.clientWidth) rangeLabel.textContent = rangeTexts[1];
+  }
+  window.addEventListener('resize', () => setRangeLabel());
+
   function render() {
     const todayKey = dateKey(new Date());
     const end = addDays(viewStart, 6);
     const sameMonth = end.getMonth() === viewStart.getMonth();
-    document.getElementById('range-label').textContent =
-      `${viewStart.getMonth() + 1}월 ${viewStart.getDate()}일 – ${sameMonth ? '' : (end.getMonth() + 1) + '월 '}${end.getDate()}일`;
+    setRangeLabel(
+      `${viewStart.getMonth() + 1}월 ${viewStart.getDate()}일 – ${sameMonth ? '' : (end.getMonth() + 1) + '월 '}${end.getDate()}일`,
+      `${viewStart.getMonth() + 1}/${viewStart.getDate()} – ${end.getMonth() + 1}/${end.getDate()}`);
     const offset = daysBetween(new Date(), viewStart);
     document.getElementById('range-sub').textContent =
       offset === 0 ? '오늘부터 7일' : offset > 0 ? `${offset}일 뒤부터 7일` : `${-offset}일 전부터 7일`;
@@ -873,15 +894,19 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   // Callers must not change the entries.
   let libCache = null;
   function menuLibrary() {
-    if (libCache) return libCache;
+    const todayKey = dateKey(new Date());
+    if (libCache && libCache.today === todayKey) return libCache;
     const lib = new Map();
+    lib.today = todayKey;
     for (const key of Object.keys(days).sort()) {
       for (const m of MEALS) {
         for (const it of (days[key] && days[key][m.key]) || []) {
           const k = normName(it.text);
           if (!k) continue;
-          const e = lib.get(k) || { name: it.text, url: '', ing: null, count: 0, last: key, meal: m.key };
+          const e = lib.get(k) || { name: it.text, url: '', ing: null, count: 0, eaten: 0, lastEaten: '', next: '', last: key, meal: m.key };
           e.name = it.text; e.count++; e.last = key; e.meal = m.key; e.kid = !!it.kid;
+          // Days up to today count as eaten; the first later day is when it's planned next.
+          if (key <= todayKey) { e.eaten++; e.lastEaten = key; } else if (!e.next) e.next = key;
           // A new link means new 재료: the ones found for the old link no longer belong to it.
           if (it.url && it.url !== e.url) { e.url = it.url; e.ing = null; }
           if (it.ing && it.ing.list && it.ing.list.length && (!it.url || it.url === e.url)) e.ing = it.ing;
@@ -1331,9 +1356,16 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   const canAddToShopping = () => !!(window.cloud && window.cloud.live);
   const canReadLinks = () => canAddToShopping();
   const ownedNames = () => (window.cloud && window.cloud.shoppingNames ? window.cloud.shoppingNames() : new Set());
+  // Why a 재료 starts unticked (🛒 and 모아서 장보기 alike): already on the 장보기 list, still at home
+  // in 구입한 것, or a basic seasoning. '' = needs buying.
+  function alreadyHave(name) {
+    if (ownedNames().has(String(name).trim().toLowerCase())) return '장보기 목록에 있어요';
+    if (canAddToShopping() && window.cloud.stockItems().some((s) => sameThing(name, s.name))) return '구입한 것에 있어요';
+    if (isStaple(name)) return '기본 양념';
+    return '';
+  }
   function setList(list, note) {
-    const have = ownedNames();
-    shopping.list = list.map((x) => ({ name: x.name, amount: x.amount || '', on: !have.has(x.name.trim().toLowerCase()) }));
+    shopping.list = list.map((x) => ({ name: x.name, amount: x.amount || '', on: !alreadyHave(x.name) }));
     shopping.note = note;
     shopping.count = list.length;
     renderShop('list');
@@ -1549,16 +1581,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const [note, cls] = NOTES[shopping.note] || NOTES.manual;
     shopBody.append(msg(note.replace('{n}', shopping.count), cls));
 
-    const have = ownedNames();
     if (shopping.list.length) {
       const ul = el('ul', { class: 'ing-list' });
       shopping.list.forEach((ing, i) => {
-        const owned = have.has(ing.name.trim().toLowerCase());
+        const why = alreadyHave(ing.name);
         const box = el('input', { type: 'checkbox', id: 'ing-' + i, 'data-i': String(i) });
         box.checked = ing.on;
-        ul.append(el('li', { class: owned ? 'have' : null },
+        ul.append(el('li', { class: why ? 'have' : null },
           el('label', { for: 'ing-' + i }, box,
-            el('span', { class: 'ing-name' }, ing.name, owned ? el('span', { class: 'ing-have' }, '· 이미 목록에 있어요') : null),
+            el('span', { class: 'ing-name' }, ing.name, why ? el('span', { class: 'ing-have' }, '· ' + why) : null),
             ing.amount ? el('span', { class: 'ing-amount' }, ing.amount) : null)));
       });
       shopBody.append(ul);
@@ -1809,11 +1840,16 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
     const list = el('div', { class: 'book-list' });
     const favUl = el('ul');
     for (const { e, r } of favorites) {
-      const last = fromKey(e.last);
+      const md = (k) => { const d = fromKey(k); return `${d.getMonth() + 1}/${d.getDate()}`; };
       favUl.append(row({
         title: e.name,
         href: (r && r.url) || e.url || '',
-        metaParts: [`${e.count}번`, `마지막 ${last.getMonth() + 1}/${last.getDate()}`, r && r.time ? `${r.time}분` : '', r && r.level, e.kid ? '아이' : ''],
+        metaParts: [
+          e.eaten ? `${e.eaten}번 먹음` : '',
+          e.lastEaten ? `마지막 ${md(e.lastEaten)}` : '',
+          e.next ? `${md(e.next)} 예정` : '',
+          r && r.time ? `${r.time}분` : '', r && r.level, e.kid ? '아이' : '',
+        ],
         link: r ? r.link : (e.url && !notionId(e.url) ? e.url : ''),
         prefill: { text: e.name, url: e.url || (r && r.url) || '', kid: e.kid || (r ? isKidCategory(r.category) : false) },
       }));
@@ -1836,6 +1872,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   // Sign-in finishing or the family's book link arriving while the book is open: draw it again.
   let lastBookState = '';
   function bookStateChanged() {
+    // A link connected on this phone before signing in is shared with the family once connected.
+    const c = window.cloud, mine = local.get('book-url', '');
+    if (c && c.live && !c.recipeBook && mine && c.setRecipeBook) { c.recipeBook = mine; c.setRecipeBook(mine); }
     const state = `${bookUrl()}|${canReadLinks()}`;
     if (state === lastBookState) return;
     lastBookState = state;
@@ -2083,7 +2122,8 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
       if (r.e.url && !notionId(r.e.url)) name.insertAdjacentHTML('beforeend', ICONS[platform(r.e.url)]);
       name.append(r.e.name);
       if (r.e.book && !r.e.count) name.append(el('span', { class: 'book-tag' }, '레시피북'));
-      else if (r.e.count) name.append(el('span', { class: 'book-tag plain' }, `${r.e.count}번 먹음`));
+      else if (r.e.eaten) name.append(el('span', { class: 'book-tag plain' }, `${r.e.eaten}번 먹음`));
+      else if (r.e.next) name.append(el('span', { class: 'book-tag plain' }, '식단에 있어요'));
       const add = el('button', { class: 'btn primary', type: 'button' }, '식단에 넣기');
       add.addEventListener('click', () => {
         closeUseUp();
@@ -2157,11 +2197,15 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
   function gatherList() {
     const lib = menuLibrary();
     const menus = menusOn([...gatherDays].sort()).filter((m) => gatherWithShopped || !m.it.shopped);
-    const merged = new Map(), known = [], unknown = [];
+    const merged = new Map(), known = [], unknown = [], cooked = new Set();
     for (const m of menus) {
       const list = ingredientsOf(m.it, lib);
       if (!list) { unknown.push(m); continue; }
       known.push(m);
+      // The same dish for 어른 and 아이 in one meal is one pot: count its 재료 once.
+      const pot = `${m.key}|${m.meal}|${normName(m.it.text)}`;
+      if (cooked.has(pot)) continue;
+      cooked.add(pot);
       for (const g of list) {
         const k = normName(g.name);
         const e = merged.get(k) || { key: k, name: g.name, amounts: [], menus: [] };
@@ -2170,13 +2214,9 @@ button.chip:hover { border-color: var(--yolk-strong); background: var(--yolk-sof
         merged.set(k, e);
       }
     }
-    // Ticked unless already in the 장보기 list, still in 구입한 것, or a staple — the person can change it.
-    const have = ownedNames();
-    const stock = canAddToShopping() ? window.cloud.stockItems() : [];
+    // Ticked unless already on the 장보기 list, still in 구입한 것, or a staple — the person can change it.
     const items = [...merged.values()].map((e) => {
-      const why = have.has(e.name.trim().toLowerCase()) ? '장보기 목록에 있어요'
-        : stock.some((s) => sameThing(e.name, s.name)) ? '구입한 것에 있어요'
-        : isStaple(e.name) ? '기본 양념' : '';
+      const why = alreadyHave(e.name);
       return { ...e, why, on: gatherChoice.has(e.key) ? gatherChoice.get(e.key) : !why };
     });
     items.sort((a, b) => (!!a.why - !!b.why));
